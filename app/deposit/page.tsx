@@ -2,310 +2,390 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { ArrowLeft, Plus, CreditCard, Building2, CheckCircle } from "lucide-react"
-import Link from "next/link"
-import { useRouter } from "next/navigation"
-import PaymentProcessor, { type PaymentMethod } from "@/lib/payment-processor"
+import { Badge } from "@/components/ui/badge"
+import { CreditCard, Banknote, Smartphone, Shield, CheckCircle, AlertCircle } from "lucide-react"
+import { DashboardLayout } from "@/components/dashboard-layout"
 
 export default function DepositPage() {
-  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([])
-  const [selectedMethodId, setSelectedMethodId] = useState("")
-  const [amount, setAmount] = useState("")
-  const [description, setDescription] = useState("")
+  const [depositData, setDepositData] = useState({
+    amount: "",
+    paymentMethod: "card",
+    cardNumber: "",
+    expiryDate: "",
+    cvv: "",
+    nameOnCard: "",
+  })
   const [isLoading, setIsLoading] = useState(false)
+  const [depositSuccess, setDepositSuccess] = useState(false)
   const [error, setError] = useState("")
-  const [success, setSuccess] = useState("")
-  const router = useRouter()
+  const [newBalance, setNewBalance] = useState<number | null>(null)
 
-  useEffect(() => {
-    const isAuthenticated = localStorage.getItem("isAuthenticated")
-    if (!isAuthenticated) {
-      router.push("/auth/login")
-    } else {
-      loadPaymentMethods()
-    }
-  }, [router])
-
-  const loadPaymentMethods = () => {
-    const userId = localStorage.getItem("userEmail") || "demo-user"
-    const methods = PaymentProcessor.getPaymentMethods(userId)
-    setPaymentMethods(methods)
-
-    // Auto-select primary method
-    const primary = methods.find((m) => m.isPrimary)
-    if (primary) {
-      setSelectedMethodId(primary.id)
-    }
-  }
+  const paymentMethods = [
+    { id: "card", name: "Credit/Debit Card", icon: CreditCard, description: "Instant deposit" },
+    { id: "bank", name: "Bank Transfer", icon: Banknote, description: "1-2 business days" },
+    { id: "digital", name: "Digital Wallet", icon: Smartphone, description: "Apple Pay, Google Pay" },
+  ]
 
   const handleDeposit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
     setError("")
-    setSuccess("")
-
-    if (!selectedMethodId || !amount) {
-      setError("Please select a payment method and enter an amount")
-      setIsLoading(false)
-      return
-    }
-
-    const depositAmount = Number.parseFloat(amount)
-    if (depositAmount <= 0) {
-      setError("Amount must be greater than $0")
-      setIsLoading(false)
-      return
-    }
-
-    if (depositAmount > 10000) {
-      setError("Maximum deposit amount is $10,000")
-      setIsLoading(false)
-      return
-    }
 
     try {
-      const userId = localStorage.getItem("userEmail") || "demo-user"
-
-      // Call real API endpoint
-      const response = await fetch("/api/transactions/deposit", {
+      const response = await fetch("/api/square/deposit", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          userId,
-          paymentMethodId: selectedMethodId,
-          amount: depositAmount,
-          description: description || undefined,
+          amount: Number.parseFloat(depositData.amount),
+          userEmail: "user@example.com", // In real app, get from auth context
+          paymentMethodId: depositData.paymentMethod,
+          paymentToken: `token_${Date.now()}`, // In real app, get from Square Web SDK
+          cardDetails:
+            depositData.paymentMethod === "card"
+              ? {
+                  cardNumber: depositData.cardNumber,
+                  expiryDate: depositData.expiryDate,
+                  cvv: depositData.cvv,
+                  nameOnCard: depositData.nameOnCard,
+                }
+              : null,
         }),
       })
 
       const result = await response.json()
 
-      if (!response.ok) {
-        throw new Error(result.error || "Failed to process deposit")
+      if (result.success) {
+        setDepositSuccess(true)
+        setNewBalance(result.newBalance)
+        setDepositData({
+          amount: "",
+          paymentMethod: "card",
+          cardNumber: "",
+          expiryDate: "",
+          cvv: "",
+          nameOnCard: "",
+        })
+        setTimeout(() => {
+          setDepositSuccess(false)
+          setNewBalance(null)
+        }, 5000)
+      } else {
+        setError(result.error || "Deposit failed")
       }
-
-      setSuccess(`Successfully deposited $${depositAmount.toFixed(2)} to your wallet!`)
-
-      // Reset form
-      setAmount("")
-      setDescription("")
-
-      // Redirect to dashboard after success
-      setTimeout(() => {
-        router.push("/dashboard")
-      }, 2000)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to process deposit")
+      setError("Network error. Please try again.")
+      console.error("Deposit error:", err)
     } finally {
       setIsLoading(false)
     }
   }
 
-  const selectedMethod = paymentMethods.find((m) => m.id === selectedMethodId)
-
   return (
-    <div className="min-h-screen bg-gradient-hero">
-      {/* Header */}
-      <header className="glass-effect border-b border-white/20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center h-16">
-            <Link href="/dashboard">
-              <Button variant="ghost" size="sm" className="mr-4 text-white hover:bg-white/10">
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back
-              </Button>
-            </Link>
-            <Plus className="h-6 w-6 text-lime-400 mr-3" />
-            <h1 className="text-xl font-bold text-white">Deposit Funds</h1>
-          </div>
+    <DashboardLayout>
+      <div className="max-w-2xl mx-auto space-y-6">
+        <div>
+          <h1 className="text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent">Deposit Funds 💰</h1>
+          <p className="text-gray-600">Add real money to your Money Buddy wallet using Square payments</p>
         </div>
-      </header>
 
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Card className="card-gradient border-purple-500/30">
+        {/* Success Message */}
+        {depositSuccess && (
+          <Card className="border-2 border-green-200 bg-gradient-to-r from-green-50 to-emerald-50">
+            <CardContent className="pt-6">
+              <div className="flex items-center space-x-3">
+                <CheckCircle className="h-8 w-8 text-green-600" />
+                <div>
+                  <h3 className="font-semibold text-green-800">Deposit Successful! 🎉</h3>
+                  <p className="text-green-600">${depositData.amount} has been added to your Money Buddy wallet</p>
+                  {newBalance && (
+                    <p className="text-green-700 font-medium">New Balance: ${newBalance.toLocaleString()}</p>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Error Message */}
+        {error && (
+          <Card className="border-2 border-red-200 bg-gradient-to-r from-red-50 to-pink-50">
+            <CardContent className="pt-6">
+              <div className="flex items-center space-x-3">
+                <AlertCircle className="h-8 w-8 text-red-600" />
+                <div>
+                  <h3 className="font-semibold text-red-800">Deposit Failed</h3>
+                  <p className="text-red-600">{error}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Payment Method Selection */}
+        <Card className="border-2 border-purple-100 bg-gradient-to-br from-purple-50/50 to-blue-50/50">
           <CardHeader>
-            <CardTitle className="text-white">Add Money to Wallet</CardTitle>
-            <CardDescription className="text-white/70">
-              Deposit funds from your debit card or bank account
-            </CardDescription>
+            <CardTitle className="text-purple-700">Choose Payment Method</CardTitle>
+            <CardDescription>Select how you'd like to deposit funds</CardDescription>
           </CardHeader>
           <CardContent>
-            {paymentMethods.length === 0 ? (
-              <div className="text-center py-8">
-                <CreditCard className="h-12 w-12 text-white/40 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-white mb-2">No payment methods</h3>
-                <p className="text-white/60 mb-4">Add a payment method to make deposits</p>
-                <Link href="/payment-methods">
-                  <Button className="btn-accent text-white">Add Payment Method</Button>
-                </Link>
+            <div className="grid gap-4">
+              {paymentMethods.map((method) => (
+                <div
+                  key={method.id}
+                  className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                    depositData.paymentMethod === method.id
+                      ? "border-purple-400 bg-gradient-to-r from-purple-50 to-blue-50"
+                      : "border-gray-200 hover:border-purple-200"
+                  }`}
+                  onClick={() => setDepositData({ ...depositData, paymentMethod: method.id })}
+                >
+                  <div className="flex items-center space-x-3">
+                    <method.icon className="h-6 w-6 text-purple-600" />
+                    <div className="flex-1">
+                      <h3 className="font-medium text-gray-900">{method.name}</h3>
+                      <p className="text-sm text-gray-500">{method.description}</p>
+                    </div>
+                    {depositData.paymentMethod === method.id && (
+                      <Badge className="bg-purple-100 text-purple-800">Selected</Badge>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Deposit Form */}
+        <Card className="border-2 border-purple-100 bg-gradient-to-br from-purple-50/50 to-blue-50/50">
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2 text-purple-700">
+              <CreditCard className="h-5 w-5" />
+              <span>Deposit Details</span>
+            </CardTitle>
+            <CardDescription>Powered by Square - Secure payment processing</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleDeposit} className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="amount">Deposit Amount ($)</Label>
+                <Input
+                  id="amount"
+                  type="number"
+                  step="0.01"
+                  min="1"
+                  max="10000"
+                  placeholder="Enter amount to deposit"
+                  value={depositData.amount}
+                  onChange={(e) => setDepositData({ ...depositData, amount: e.target.value })}
+                  className="border-purple-200 focus:border-purple-400 text-lg font-semibold"
+                  required
+                />
+                <p className="text-sm text-green-600 font-medium">✅ No deposit fees - Free with MonkeyBank!</p>
               </div>
-            ) : (
-              <form onSubmit={handleDeposit} className="space-y-6">
-                <div className="space-y-2">
-                  <Label htmlFor="paymentMethod" className="text-white">
-                    Payment Method
-                  </Label>
-                  <Select value={selectedMethodId} onValueChange={setSelectedMethodId}>
-                    <SelectTrigger className="select-white">
-                      <SelectValue placeholder="Select payment method" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {paymentMethods.map((method) => {
-                        const details = method.details as any
-                        const icon = method.type === "debit_card" ? "💳" : "🏦"
-                        const displayText =
-                          method.type === "debit_card"
-                            ? `${details.brand.toUpperCase()} •••• ${details.last4}`
-                            : `${details.bankName} •••• ${details.last4}`
 
-                        return (
-                          <SelectItem key={method.id} value={method.id}>
-                            <div className="flex items-center space-x-2">
-                              <span>{icon}</span>
-                              <span>
-                                {method.name} - {displayText}
-                              </span>
-                              {method.isPrimary && <span className="text-xs text-green-600">(Primary)</span>}
-                            </div>
-                          </SelectItem>
-                        )
-                      })}
-                    </SelectContent>
-                  </Select>
-                </div>
+              {depositData.paymentMethod === "card" && (
+                <div className="space-y-4 p-4 border-2 border-purple-200 rounded-lg bg-white/50">
+                  <h4 className="font-medium text-purple-700">Card Information</h4>
 
-                <div className="space-y-2">
-                  <Label htmlFor="amount" className="text-white">
-                    Amount ($)
-                  </Label>
-                  <Input
-                    id="amount"
-                    type="number"
-                    step="0.01"
-                    min="0.01"
-                    max="10000"
-                    placeholder="0.00"
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    required
-                    className="input-white"
-                  />
-                  <p className="text-xs text-white/60">Minimum: $0.01 • Maximum: $10,000</p>
-                </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="cardNumber">Card Number</Label>
+                    <Input
+                      id="cardNumber"
+                      placeholder="1234 5678 9012 3456"
+                      value={depositData.cardNumber}
+                      onChange={(e) => {
+                        // Format card number with spaces
+                        const value = e.target.value
+                          .replace(/\s/g, "")
+                          .replace(/(.{4})/g, "$1 ")
+                          .trim()
+                        if (value.length <= 19) {
+                          setDepositData({ ...depositData, cardNumber: value })
+                        }
+                      }}
+                      className="border-purple-200 focus:border-purple-400"
+                      maxLength={19}
+                      required
+                    />
+                  </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="description" className="text-white">
-                    Description (Optional)
-                  </Label>
-                  <Input
-                    id="description"
-                    placeholder="What's this deposit for?"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    className="input-white"
-                  />
-                </div>
-
-                {/* Transaction Summary */}
-                {amount && selectedMethod && (
-                  <div className="bg-white/5 border border-white/10 rounded-lg p-4">
-                    <h4 className="font-medium mb-3 text-white">Transaction Summary</h4>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-white/80">Deposit Amount:</span>
-                        <span className="font-medium text-white">${Number.parseFloat(amount).toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-white/80">Processing Fee:</span>
-                        <span className="font-medium text-lime-400">FREE</span>
-                      </div>
-                      <div className="flex justify-between border-t border-white/20 pt-2">
-                        <span className="font-medium text-white">You'll Receive:</span>
-                        <span className="font-medium text-lime-400">${Number.parseFloat(amount).toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-white/80">From:</span>
-                        <span className="font-medium text-white">{selectedMethod.name}</span>
-                      </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="expiryDate">Expiry Date</Label>
+                      <Input
+                        id="expiryDate"
+                        placeholder="MM/YY"
+                        value={depositData.expiryDate}
+                        onChange={(e) => {
+                          // Format expiry date
+                          let value = e.target.value.replace(/\D/g, "")
+                          if (value.length >= 2) {
+                            value = value.substring(0, 2) + "/" + value.substring(2, 4)
+                          }
+                          setDepositData({ ...depositData, expiryDate: value })
+                        }}
+                        className="border-purple-200 focus:border-purple-400"
+                        maxLength={5}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="cvv">CVV</Label>
+                      <Input
+                        id="cvv"
+                        placeholder="123"
+                        type="password"
+                        value={depositData.cvv}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/\D/g, "")
+                          if (value.length <= 4) {
+                            setDepositData({ ...depositData, cvv: value })
+                          }
+                        }}
+                        className="border-purple-200 focus:border-purple-400"
+                        maxLength={4}
+                        required
+                      />
                     </div>
                   </div>
-                )}
 
-                {error && (
-                  <Alert variant="destructive" className="bg-red-500/20 border-red-400/30">
-                    <AlertDescription className="text-red-200">{error}</AlertDescription>
-                  </Alert>
-                )}
+                  <div className="space-y-2">
+                    <Label htmlFor="nameOnCard">Name on Card</Label>
+                    <Input
+                      id="nameOnCard"
+                      placeholder="John Doe"
+                      value={depositData.nameOnCard}
+                      onChange={(e) => setDepositData({ ...depositData, nameOnCard: e.target.value })}
+                      className="border-purple-200 focus:border-purple-400"
+                      required
+                    />
+                  </div>
+                </div>
+              )}
 
-                {success && (
-                  <Alert className="bg-lime-500/20 border-lime-400/30">
-                    <CheckCircle className="h-4 w-4" />
-                    <AlertDescription className="text-lime-200">{success}</AlertDescription>
-                  </Alert>
-                )}
+              {depositData.paymentMethod === "bank" && (
+                <div className="space-y-4 p-4 border-2 border-purple-200 rounded-lg bg-white/50">
+                  <h4 className="font-medium text-purple-700">Bank Transfer Information</h4>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <p className="text-sm text-blue-700">
+                      Bank transfers take 1-2 business days to process. You'll receive a confirmation email once the
+                      deposit is complete.
+                    </p>
+                  </div>
+                </div>
+              )}
 
-                <Button
-                  type="submit"
-                  disabled={isLoading || !selectedMethodId || !amount}
-                  className="w-full btn-accent text-white font-semibold"
-                >
-                  {isLoading ? "Processing Deposit..." : "Deposit Funds"}
-                </Button>
-              </form>
-            )}
+              {depositData.paymentMethod === "digital" && (
+                <div className="space-y-4 p-4 border-2 border-purple-200 rounded-lg bg-white/50">
+                  <h4 className="font-medium text-purple-700">Digital Wallet</h4>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <p className="text-sm text-blue-700">
+                      You'll be redirected to complete your payment with Apple Pay or Google Pay.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Security Notice */}
+              <div className="bg-gradient-to-r from-blue-50 to-cyan-50 border-2 border-blue-200 rounded-lg p-4">
+                <div className="flex items-start space-x-2">
+                  <Shield className="h-5 w-5 text-blue-600 mt-0.5" />
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-blue-800">Secure Payment Processing</h4>
+                    <div className="text-sm text-blue-700 space-y-1">
+                      <p>• Powered by Square - Industry-leading security</p>
+                      <p>• PCI DSS compliant payment processing</p>
+                      <p>• Your card information is encrypted and secure</p>
+                      <p>• Instant deposits to your Money Buddy wallet</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <Button
+                type="submit"
+                className="w-full bg-gradient-primary hover:opacity-90 text-white border-0 py-3 text-lg font-semibold"
+                disabled={isLoading || !depositData.amount}
+              >
+                {isLoading ? (
+                  <div className="flex items-center space-x-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>Processing Deposit...</span>
+                  </div>
+                ) : (
+                  `Deposit $${depositData.amount || "0.00"} 🐵`
+                )}
+              </Button>
+            </form>
           </CardContent>
         </Card>
 
-        {/* Info Card */}
-        <Card className="mt-6 card-gradient border-purple-500/30">
+        {/* Recent Deposits */}
+        <Card className="border-2 border-blue-100 bg-gradient-to-br from-blue-50/50 to-cyan-50/50">
           <CardHeader>
-            <CardTitle className="text-white text-lg">Deposit Information</CardTitle>
+            <CardTitle className="text-blue-700">Recent Deposits</CardTitle>
+            <CardDescription>Your latest MonkeyBank deposits</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3 text-sm text-white/70">
-            <div className="flex items-start space-x-2">
-              <CheckCircle className="h-4 w-4 text-lime-400 mt-0.5 flex-shrink-0" />
-              <span>Deposits are processed instantly and are completely free</span>
-            </div>
-            <div className="flex items-start space-x-2">
-              <CheckCircle className="h-4 w-4 text-lime-400 mt-0.5 flex-shrink-0" />
-              <span>Funds are immediately available in your wallet</span>
-            </div>
-            <div className="flex items-start space-x-2">
-              <CheckCircle className="h-4 w-4 text-lime-400 mt-0.5 flex-shrink-0" />
-              <span>Maximum deposit amount is $10,000 per transaction</span>
-            </div>
-            <div className="flex items-start space-x-2">
-              <CheckCircle className="h-4 w-4 text-lime-400 mt-0.5 flex-shrink-0" />
-              <span>All transactions are secured with bank-level encryption</span>
+          <CardContent>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between p-3 border border-blue-200 rounded-lg bg-white/50">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-gradient-to-r from-green-400 to-green-600 rounded-full flex items-center justify-center">
+                    <CreditCard className="h-5 w-5 text-white" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-900">Card Deposit</p>
+                    <p className="text-sm text-gray-500">January 15, 2024</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="font-bold text-green-600">+$500.00</p>
+                  <Badge className="bg-green-100 text-green-800">Completed</Badge>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between p-3 border border-blue-200 rounded-lg bg-white/50">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-gradient-to-r from-blue-400 to-blue-600 rounded-full flex items-center justify-center">
+                    <Banknote className="h-5 w-5 text-white" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-900">Bank Transfer</p>
+                    <p className="text-sm text-gray-500">January 12, 2024</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="font-bold text-green-600">+$1,200.00</p>
+                  <Badge className="bg-green-100 text-green-800">Completed</Badge>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between p-3 border border-blue-200 rounded-lg bg-white/50">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-gradient-to-r from-purple-400 to-purple-600 rounded-full flex items-center justify-center">
+                    <Smartphone className="h-5 w-5 text-white" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-900">Apple Pay</p>
+                    <p className="text-sm text-gray-500">January 10, 2024</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="font-bold text-green-600">+$250.00</p>
+                  <Badge className="bg-green-100 text-green-800">Completed</Badge>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
-
-        {/* Quick Actions */}
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Link href="/payment-methods">
-            <Button variant="outline" className="w-full glass-effect text-white border-white/30 hover:bg-white/10">
-              <CreditCard className="h-4 w-4 mr-2" />
-              Manage Payment Methods
-            </Button>
-          </Link>
-          <Link href="/withdraw">
-            <Button variant="outline" className="w-full glass-effect text-white border-white/30 hover:bg-white/10">
-              <Building2 className="h-4 w-4 mr-2" />
-              Withdraw Funds
-            </Button>
-          </Link>
-        </div>
       </div>
-    </div>
+    </DashboardLayout>
   )
 }
