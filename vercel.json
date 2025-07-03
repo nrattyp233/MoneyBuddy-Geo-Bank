@@ -1,79 +1,43 @@
 {
-  "version": 2,
-  "name": "money-buddy-banking-app",
-  "alias": ["money-buddy"],
-  "regions": ["iad1"],
-  "build": {
-    "env": {
-      "NODE_ENV": "production"
-    }
-  },
+  "buildCommand": "pnpm install --no-frozen-lockfile && pnpm build",
+  "installCommand": "pnpm install --no-frozen-lockfile",
+  "framework": "nextjs",
   "functions": {
     "app/api/**/*.ts": {
       "maxDuration": 30
     }
   },
-  "rewrites": [
-    {
-      "source": "/api/(.*)",
-      "destination": "/api/$1"
-    }
-  ],
   "headers": [
     {
       "source": "/(.*)",
       "headers": [
         {
-          "key": "X-Frame-Options",
-          "value": "DENY"
-        },
-        {
           "key": "X-Content-Type-Options",
           "value": "nosniff"
         },
         {
-          "key": "Referrer-Policy",
-          "value": "strict-origin-when-cross-origin"
+          "key": "X-Frame-Options",
+          "value": "DENY"
         },
         {
           "key": "X-XSS-Protection",
           "value": "1; mode=block"
         },
         {
-          "key": "Strict-Transport-Security",
-          "value": "max-age=31536000; includeSubDomains"
-        }
-      ]
-    },
-    {
-      "source": "/api/(.*)",
-      "headers": [
-        {
-          "key": "Access-Control-Allow-Origin",
-          "value": "*"
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
         },
         {
-          "key": "Access-Control-Allow-Methods",
-          "value": "GET, POST, PUT, DELETE, OPTIONS"
-        },
-        {
-          "key": "Access-Control-Allow-Headers",
-          "value": "Content-Type, Authorization"
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://api.mapbox.com https://js.squareup.com; style-src 'self' 'unsafe-inline' https://api.mapbox.com; img-src 'self' data: https:; font-src 'self' https:; connect-src 'self' https: wss:; frame-src https://js.squareup.com;"
         }
       ]
     }
   ],
-  "redirects": [
+  "rewrites": [
     {
-      "source": "/",
-      "has": [
-        {
-          "type": "host",
-          "value": "www.money-buddy.com"
-        }
-      ],
-      "destination": "https://money-buddy.com",
-      "permanent": true
+      "source": "/api/(.*)",
+      "destination": "/api/$1"
     }
   ]
 }

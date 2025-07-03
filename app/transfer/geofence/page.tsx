@@ -1,7 +1,4 @@
 "use client"
-
-import type React from "react"
-
 import { useState, useEffect, useRef } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -9,424 +6,524 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { MapPin, Send, Clock, AlertCircle, Target, CheckCircle } from "lucide-react"
+import { MapPin, DollarSign, Users, Clock, Search, Target, Trash2, Circle, Hand, Pencil } from "lucide-react"
 import { DashboardLayout } from "@/components/dashboard-layout"
-import { createGeofence, getUserGeofences, createTransaction, type Geofence } from "@/lib/supabase"
+import { AuthGuard } from "@/components/auth-guard"
+import { useAuth } from "@/components/stack-auth-provider"
+import type { Geofence } from "@/lib/neon"
 
-declare global {
-  interface Window {
-    mapboxgl: any
-  }
+interface AddressSuggestion {
+  id: string
+  place_name: string
+  center: [number, number]
 }
 
-export default function GeofenceTransferPage() {
-  const mapContainer = useRef<HTMLDivElement>(null)
-  const map = useRef<any>(null)
-  const [isMapLoaded, setIsMapLoaded] = useState(false)
-  const [userLocation, setUserLocation] = useState<[number, number] | null>(null)
-  const [isDrawingMode, setIsDrawingMode] = useState(false)
-  const [isMouseDown, setIsMouseDown] = useState(false)
-  const [drawingCenter, setDrawingCenter] = useState<[number, number] | null>(null)
-  const [currentRadius, setCurrentRadius] = useState(0)
-  const [selectedGeofence, setSelectedGeofence] = useState<{
-    center: [number, number]
-    radius: number
-    name: string
-  } | null>(null)
-  const [existingGeofences, setExistingGeofences] = useState<Geofence[]>([])
-  const [isLoading, setIsLoading] = useState(false)
+function GeofenceTransferContent() {
+  const { user } = useAuth()
+  const mapContainerRef = useRef<HTMLDivElement>(null)
+  const mapRef = useRef<any>(null)
+  const drawRef = useRef<any>(null)
+  const [geofences, setGeofences] = useState<Geofence[]>([])
+  const [loading, setLoading] = useState(true)
+  const [creating, setCreating] = useState(false)
   const [mapboxToken, setMapboxToken] = useState<string | null>(null)
+  const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lng: number } | null>(null)
+  const [selectedRadius, setSelectedRadius] = useState(100)
+  const [drawingMode, setDrawingMode] = useState<"click" | "draw" | "polygon">("click")
+  const [drawnFeature, setDrawnFeature] = useState<any>(null)
 
-  const [transferData, setTransferData] = useState({
-    recipient: "",
+  // Address search
+  const [addressQuery, setAddressQuery] = useState("")
+  const [addressSuggestions, setAddressSuggestions] = useState<AddressSuggestion[]>([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
+
+  // Form state
+  const [formData, setFormData] = useState({
+    name: "",
     amount: "",
+    recipientEmail: "",
     memo: "",
-    timeLimit: "24",
+    radius: 100,
   })
 
-  // Fetch Mapbox token from server
+  // Load Mapbox token
   useEffect(() => {
-    fetch("/api/mapbox/token")
-      .then((res) => res.json())
-      .then((data) => setMapboxToken(data.token))
-      .catch((err) => console.error("Failed to fetch Mapbox token:", err))
-  }, [])
-
-  // Check if token is valid (not a placeholder)
-  const isValidToken =
-    mapboxToken &&
-    mapboxToken.startsWith("pk.") &&
-    !mapboxToken.includes("your_mapbox_token_here") &&
-    mapboxToken.length > 20
-
-  useEffect(() => {
-    if (!isValidToken || !mapContainer.current) return
-
-    // Load Mapbox GL JS
-    const script = document.createElement("script")
-    script.src = "https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.js"
-    script.onload = initializeMap
-    document.head.appendChild(script)
-
-    const link = document.createElement("link")
-    link.href = "https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.css"
-    link.rel = "stylesheet"
-    document.head.appendChild(link)
-
-    return () => {
-      if (map.current) {
-        map.current.remove()
+    async function loadMapboxToken() {
+      try {
+        const response = await fetch("/api/mapbox/token")
+        if (response.ok) {
+          const data = await response.json()
+          setMapboxToken(data.token)
+        } else {
+          console.error("Failed to load Mapbox token")
+        }
+      } catch (error) {
+        console.error("Error loading Mapbox token:", error)
       }
     }
-  }, [isValidToken, mapboxToken])
-
-  useEffect(() => {
-    loadExistingGeofences()
+    loadMapboxToken()
   }, [])
 
-  const loadExistingGeofences = async () => {
-    try {
-      const userData = localStorage.getItem("moneyBuddyUser")
-      if (!userData) return
+  // Load existing geofences for the authenticated user
+  useEffect(() => {
+    if (user?.id) {
+      loadExistingGeofences()
+    }
+  }, [user?.id])
 
-      const user = JSON.parse(userData)
-      const geofences = await getUserGeofences(user.id || "demo-user")
-      setExistingGeofences(geofences)
+  async function loadExistingGeofences() {
+    if (!user?.id) return
+
+    try {
+      setLoading(true)
+      const res = await fetch(`/api/geofences?userId=${user.id}`)
+      if (!res.ok) throw new Error(await res.text())
+      const data = await res.json()
+      setGeofences(data.geofences as Geofence[])
     } catch (error) {
       console.error("Error loading geofences:", error)
+    } finally {
+      setLoading(false)
     }
   }
 
-  const initializeMap = () => {
-    if (!window.mapboxgl || map.current || !mapboxToken) return
-
-    window.mapboxgl.accessToken = mapboxToken
-
-    map.current = new window.mapboxgl.Map({
-      container: mapContainer.current,
-      style: "mapbox://styles/mapbox/streets-v12",
-      center: [-74.006, 40.7128], // NYC default
-      zoom: 12,
-    })
-
-    map.current.on("load", () => {
-      setIsMapLoaded(true)
-      getUserLocation()
-      setupMapEventHandlers()
-      displayExistingGeofences()
-    })
-  }
-
-  const setupMapEventHandlers = () => {
-    if (!map.current) return
-
-    map.current.on("mousedown", handleMouseDown)
-    map.current.on("mousemove", handleMouseMove)
-    map.current.on("mouseup", handleMouseUp)
-  }
-
-  const handleMouseDown = (e: any) => {
-    if (!isDrawingMode) return
-
-    e.preventDefault()
-    setIsMouseDown(true)
-    const center: [number, number] = [e.lngLat.lng, e.lngLat.lat]
-    setDrawingCenter(center)
-    setCurrentRadius(0)
-
-    // Disable map interactions during drawing
-    map.current.dragPan.disable()
-    map.current.scrollZoom.disable()
-  }
-
-  const handleMouseMove = (e: any) => {
-    if (!isDrawingMode || !isMouseDown || !drawingCenter) return
-
-    const currentPoint: [number, number] = [e.lngLat.lng, e.lngLat.lat]
-    const radius = calculateDistance(drawingCenter, currentPoint)
-    setCurrentRadius(Math.max(radius, 50)) // Minimum 50 meters
-
-    updateDrawingCircle(drawingCenter, Math.max(radius, 50))
-  }
-
-  const handleMouseUp = () => {
-    if (!isDrawingMode || !isMouseDown || !drawingCenter) return
-
-    setIsMouseDown(false)
-    const finalRadius = Math.max(currentRadius, 50)
-
-    // Re-enable map interactions
-    map.current.dragPan.enable()
-    map.current.scrollZoom.enable()
-
-    // Set the selected geofence
-    setSelectedGeofence({
-      center: drawingCenter,
-      radius: finalRadius,
-      name: `Geofence at ${drawingCenter[1].toFixed(4)}, ${drawingCenter[0].toFixed(4)}`,
-    })
-
-    // Exit drawing mode
-    setIsDrawingMode(false)
-    clearDrawingCircle()
-  }
-
-  const updateDrawingCircle = (center: [number, number], radius: number) => {
-    if (!map.current) return
-
-    const circleCoords = createCircleCoordinates(center, radius)
-
-    if (map.current.getSource("drawing-circle")) {
-      map.current.getSource("drawing-circle").setData({
-        type: "Feature",
-        geometry: {
-          type: "Polygon",
-          coordinates: [circleCoords],
-        },
-      })
-    } else {
-      map.current.addSource("drawing-circle", {
-        type: "geojson",
-        data: {
-          type: "Feature",
-          geometry: {
-            type: "Polygon",
-            coordinates: [circleCoords],
-          },
-        },
-      })
-
-      map.current.addLayer({
-        id: "drawing-circle-fill",
-        type: "fill",
-        source: "drawing-circle",
-        paint: {
-          "fill-color": "#10b981",
-          "fill-opacity": 0.3,
-        },
-      })
-
-      map.current.addLayer({
-        id: "drawing-circle-stroke",
-        type: "line",
-        source: "drawing-circle",
-        paint: {
-          "line-color": "#10b981",
-          "line-width": 3,
-        },
-      })
+  // Address search functionality
+  async function searchAddresses(query: string) {
+    if (query.length < 3) {
+      setAddressSuggestions([])
+      setShowSuggestions(false)
+      return
     }
-  }
-
-  const clearDrawingCircle = () => {
-    if (!map.current) return
-
-    if (map.current.getLayer("drawing-circle-fill")) {
-      map.current.removeLayer("drawing-circle-fill")
-    }
-    if (map.current.getLayer("drawing-circle-stroke")) {
-      map.current.removeLayer("drawing-circle-stroke")
-    }
-    if (map.current.getSource("drawing-circle")) {
-      map.current.removeSource("drawing-circle")
-    }
-  }
-
-  const displayExistingGeofences = () => {
-    if (!map.current || !existingGeofences.length) return
-
-    existingGeofences.forEach((geofence, index) => {
-      const circleCoords = createCircleCoordinates([geofence.center_lng, geofence.center_lat], geofence.radius)
-      const sourceId = `geofence-${index}`
-
-      map.current.addSource(sourceId, {
-        type: "geojson",
-        data: {
-          type: "Feature",
-          geometry: {
-            type: "Polygon",
-            coordinates: [circleCoords],
-          },
-        },
-      })
-
-      map.current.addLayer({
-        id: `${sourceId}-fill`,
-        type: "fill",
-        source: sourceId,
-        paint: {
-          "fill-color": "#8b5cf6",
-          "fill-opacity": 0.2,
-        },
-      })
-
-      map.current.addLayer({
-        id: `${sourceId}-stroke`,
-        type: "line",
-        source: sourceId,
-        paint: {
-          "line-color": "#8b5cf6",
-          "line-width": 2,
-        },
-      })
-    })
-  }
-
-  const createCircleCoordinates = (center: [number, number], radiusInMeters: number) => {
-    const points = 64
-    const coords = []
-    const distanceX = radiusInMeters / (111320 * Math.cos((center[1] * Math.PI) / 180))
-    const distanceY = radiusInMeters / 110540
-
-    for (let i = 0; i < points; i++) {
-      const theta = (i / points) * (2 * Math.PI)
-      const x = distanceX * Math.cos(theta)
-      const y = distanceY * Math.sin(theta)
-      coords.push([center[0] + x, center[1] + y])
-    }
-    coords.push(coords[0]) // Close the polygon
-    return coords
-  }
-
-  const calculateDistance = (point1: [number, number], point2: [number, number]) => {
-    const R = 6371e3 // Earth's radius in meters
-    const φ1 = (point1[1] * Math.PI) / 180
-    const φ2 = (point2[1] * Math.PI) / 180
-    const Δφ = ((point2[1] - point1[1]) * Math.PI) / 180
-    const Δλ = ((point2[0] - point1[0]) * Math.PI) / 180
-
-    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2)
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-
-    return R * c
-  }
-
-  const getUserLocation = () => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const location: [number, number] = [position.coords.longitude, position.coords.latitude]
-          setUserLocation(location)
-          if (map.current) {
-            map.current.setCenter(location)
-            map.current.setZoom(14)
-
-            // Add user location marker
-            new window.mapboxgl.Marker({ color: "#ef4444" }).setLngLat(location).addTo(map.current)
-          }
-        },
-        (error) => {
-          console.error("Error getting user location:", error)
-        },
-      )
-    }
-  }
-
-  const startDrawing = () => {
-    setIsDrawingMode(true)
-    setSelectedGeofence(null)
-    clearDrawingCircle()
-    if (map.current) {
-      map.current.getCanvas().style.cursor = "crosshair"
-    }
-  }
-
-  const cancelDrawing = () => {
-    setIsDrawingMode(false)
-    setIsMouseDown(false)
-    setDrawingCenter(null)
-    setCurrentRadius(0)
-    clearDrawingCircle()
-    if (map.current) {
-      map.current.getCanvas().style.cursor = ""
-      map.current.dragPan.enable()
-      map.current.scrollZoom.enable()
-    }
-  }
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setTransferData({
-      ...transferData,
-      [e.target.name]: e.target.value,
-    })
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!selectedGeofence) return
-
-    setIsLoading(true)
 
     try {
-      const userData = localStorage.getItem("moneyBuddyUser")
-      if (!userData) {
-        throw new Error("User not authenticated")
-      }
-
-      const user = JSON.parse(userData)
-      const userId = user.id || "demo-user"
-
-      // Create geofence in database
-      const geofenceData = {
-        user_id: userId,
-        name: selectedGeofence.name,
-        center_lat: selectedGeofence.center[1],
-        center_lng: selectedGeofence.center[0],
-        radius: selectedGeofence.radius,
-        amount: Number.parseFloat(transferData.amount),
-        recipient_email: transferData.recipient,
-        memo: transferData.memo,
-        is_active: true,
-        is_claimed: false,
-        expires_at: transferData.timeLimit
-          ? new Date(Date.now() + Number.parseInt(transferData.timeLimit) * 60 * 60 * 1000).toISOString()
-          : null,
-      }
-
-      const geofence = await createGeofence(geofenceData)
-
-      if (geofence) {
-        // Create transaction record
-        const transactionData = {
-          user_id: userId,
-          type: "geofence_transfer" as const,
-          amount: Number.parseFloat(transferData.amount),
-          fee: Number.parseFloat(transferData.amount) * 0.02, // 2% fee
-          description: `Geofenced transfer to ${transferData.recipient}`,
-          recipient_email: transferData.recipient,
-          status: "pending" as const,
-          metadata: {
-            geofence_id: geofence.id,
-            memo: transferData.memo,
-            expires_at: geofenceData.expires_at,
-          },
-        }
-
-        await createTransaction(transactionData)
-
-        alert("Geofenced transfer created successfully!")
-
-        // Reset form
-        setTransferData({
-          recipient: "",
-          amount: "",
-          memo: "",
-          timeLimit: "24",
-        })
-        setSelectedGeofence(null)
-
-        // Reload geofences
-        await loadExistingGeofences()
+      const response = await fetch(`/api/mapbox/geocode?q=${encodeURIComponent(query)}`)
+      if (response.ok) {
+        const data = await response.json()
+        setAddressSuggestions(data.features || [])
+        setShowSuggestions(true)
       }
     } catch (error) {
-      console.error("Error creating geofenced transfer:", error)
-      alert("Failed to create geofenced transfer. Please try again.")
-    } finally {
-      setIsLoading(false)
+      console.error("Error searching addresses:", error)
     }
   }
 
-  if (!isValidToken) {
+  function selectAddress(suggestion: AddressSuggestion) {
+    const [lng, lat] = suggestion.center
+    setSelectedLocation({ lat, lng })
+    setAddressQuery(suggestion.place_name)
+    setShowSuggestions(false)
+
+    // Move map to selected location
+    if (mapRef.current) {
+      mapRef.current.flyTo({
+        center: [lng, lat],
+        zoom: 15,
+      })
+
+      // Update preview circle
+      updateGeofenceCircle(lat, lng, selectedRadius)
+    }
+  }
+
+  // Initialize map when token is available
+  useEffect(() => {
+    if (!mapboxToken || !mapContainerRef.current) return
+
+    const initializeMap = async () => {
+      try {
+        // Dynamically import Mapbox GL JS and Draw
+        const [mapboxgl, MapboxDraw] = await Promise.all([import("mapbox-gl"), import("@mapbox/mapbox-gl-draw")])
+
+        mapboxgl.default.accessToken = mapboxToken
+
+        const map = new mapboxgl.default.Map({
+          container: mapContainerRef.current!,
+          style: "mapbox://styles/mapbox/streets-v12",
+          center: [-74.006, 40.7128], // NYC
+          zoom: 13,
+        })
+
+        // Initialize drawing controls
+        const draw = new MapboxDraw.default({
+          displayControlsDefault: false,
+          controls: {
+            point: true,
+            polygon: true,
+            trash: true,
+          },
+          defaultMode: "simple_select",
+          styles: [
+            // Point styles
+            {
+              id: "gl-draw-point",
+              type: "circle",
+              filter: ["all", ["==", "$type", "Point"], ["==", "meta", "feature"]],
+              paint: {
+                "circle-radius": 8,
+                "circle-color": "#3b82f6",
+                "circle-stroke-color": "#1d4ed8",
+                "circle-stroke-width": 2,
+              },
+            },
+            {
+              id: "gl-draw-point-active",
+              type: "circle",
+              filter: ["all", ["==", "$type", "Point"], ["==", "active", "true"]],
+              paint: {
+                "circle-radius": 10,
+                "circle-color": "#3b82f6",
+                "circle-stroke-color": "#1d4ed8",
+                "circle-stroke-width": 3,
+              },
+            },
+            // Polygon styles
+            {
+              id: "gl-draw-polygon-fill",
+              type: "fill",
+              filter: ["all", ["==", "$type", "Polygon"], ["!=", "mode", "static"]],
+              paint: {
+                "fill-color": "#3b82f6",
+                "fill-opacity": 0.3,
+              },
+            },
+            {
+              id: "gl-draw-polygon-stroke-active",
+              type: "line",
+              filter: ["all", ["==", "$type", "Polygon"], ["==", "active", "true"]],
+              paint: {
+                "line-color": "#1d4ed8",
+                "line-width": 3,
+              },
+            },
+            {
+              id: "gl-draw-polygon-stroke-inactive",
+              type: "line",
+              filter: ["all", ["==", "$type", "Polygon"], ["==", "active", "false"]],
+              paint: {
+                "line-color": "#3b82f6",
+                "line-width": 2,
+              },
+            },
+            // Vertex styles
+            {
+              id: "gl-draw-polygon-and-line-vertex-active",
+              type: "circle",
+              filter: ["all", ["==", "meta", "vertex"], ["==", "$type", "Point"]],
+              paint: {
+                "circle-radius": 5,
+                "circle-color": "#ffffff",
+                "circle-stroke-color": "#1d4ed8",
+                "circle-stroke-width": 2,
+              },
+            },
+          ],
+        })
+
+        map.addControl(draw, "top-left")
+        drawRef.current = draw
+
+        map.on("load", () => {
+          // Add click handler for click mode
+          map.on("click", (e) => {
+            if (drawingMode === "click") {
+              const { lng, lat } = e.lngLat
+              setSelectedLocation({ lat, lng })
+              updateGeofenceCircle(lat, lng, selectedRadius)
+
+              // Clear any drawn features
+              if (drawRef.current) {
+                drawRef.current.deleteAll()
+              }
+              setDrawnFeature(null)
+            }
+          })
+
+          // Handle drawing events
+          map.on("draw.create", (e) => {
+            const feature = e.features[0]
+            setDrawnFeature(feature)
+
+            if (feature.geometry.type === "Point") {
+              const [lng, lat] = feature.geometry.coordinates
+              setSelectedLocation({ lat, lng })
+              updateGeofenceCircle(lat, lng, selectedRadius)
+            } else if (feature.geometry.type === "Polygon") {
+              // Calculate centroid for polygon
+              const centroid = calculatePolygonCentroid(feature.geometry.coordinates[0])
+              setSelectedLocation({ lat: centroid[1], lng: centroid[0] })
+
+              // Calculate appropriate radius based on polygon size
+              const radius = calculatePolygonRadius(feature.geometry.coordinates[0])
+              setSelectedRadius(radius)
+              updateGeofenceCircle(centroid[1], centroid[0], radius)
+            }
+          })
+
+          map.on("draw.update", (e) => {
+            const feature = e.features[0]
+            setDrawnFeature(feature)
+
+            if (feature.geometry.type === "Point") {
+              const [lng, lat] = feature.geometry.coordinates
+              setSelectedLocation({ lat, lng })
+              updateGeofenceCircle(lat, lng, selectedRadius)
+            } else if (feature.geometry.type === "Polygon") {
+              const centroid = calculatePolygonCentroid(feature.geometry.coordinates[0])
+              setSelectedLocation({ lat: centroid[1], lng: centroid[0] })
+
+              const radius = calculatePolygonRadius(feature.geometry.coordinates[0])
+              setSelectedRadius(radius)
+              updateGeofenceCircle(centroid[1], centroid[0], radius)
+            }
+          })
+
+          map.on("draw.delete", () => {
+            setSelectedLocation(null)
+            setDrawnFeature(null)
+            clearGeofencePreview()
+          })
+
+          // Load existing geofences on map
+          loadGeofencesOnMap()
+        })
+
+        mapRef.current = map
+
+        return () => {
+          map.remove()
+        }
+      } catch (error) {
+        console.error("Error initializing map:", error)
+      }
+    }
+
+    initializeMap()
+  }, [mapboxToken])
+
+  function calculatePolygonCentroid(coordinates: number[][]): [number, number] {
+    let x = 0,
+      y = 0
+    for (const coord of coordinates) {
+      x += coord[0]
+      y += coord[1]
+    }
+    return [x / coordinates.length, y / coordinates.length]
+  }
+
+  function calculatePolygonRadius(coordinates: number[][]): number {
+    const centroid = calculatePolygonCentroid(coordinates)
+    let maxDistance = 0
+
+    for (const coord of coordinates) {
+      const distance = Math.sqrt(Math.pow(coord[0] - centroid[0], 2) + Math.pow(coord[1] - centroid[1], 2)) * 111000 // Convert to meters approximately
+      maxDistance = Math.max(maxDistance, distance)
+    }
+
+    return Math.round(Math.max(50, Math.min(1000, maxDistance)))
+  }
+
+  function updateGeofenceCircle(lat: number, lng: number, radius: number) {
+    if (!mapRef.current) return
+
+    const map = mapRef.current
+
+    // Remove existing circle
+    clearGeofencePreview()
+
+    // Add new circle
+    map.addSource("geofence-preview", {
+      type: "geojson",
+      data: {
+        type: "Feature",
+        geometry: {
+          type: "Point",
+          coordinates: [lng, lat],
+        },
+      },
+    })
+
+    map.addLayer({
+      id: "geofence-preview-circle",
+      type: "circle",
+      source: "geofence-preview",
+      paint: {
+        "circle-radius": {
+          stops: [
+            [0, 0],
+            [20, radius / 2],
+          ],
+          base: 2,
+        },
+        "circle-color": "#3b82f6",
+        "circle-opacity": 0.3,
+        "circle-stroke-color": "#3b82f6",
+        "circle-stroke-width": 2,
+      },
+    })
+
+    // Add center marker
+    if (typeof window !== "undefined" && (window as any).mapboxgl) {
+      ;new (window as any).mapboxgl.Marker({ color: "#3b82f6" }).setLngLat([lng, lat]).addTo(map)
+    }
+  }
+
+  function clearGeofencePreview() {
+    if (!mapRef.current) return
+
+    const map = mapRef.current
+    if (map.getSource("geofence-preview")) {
+      map.removeLayer("geofence-preview-circle")
+      map.removeSource("geofence-preview")
+    }
+  }
+
+  function loadGeofencesOnMap() {
+    if (!mapRef.current) return
+
+    geofences.forEach((geofence, index) => {
+      const map = mapRef.current
+
+      // Add marker for geofence center
+      if (typeof window !== "undefined" && (window as any).mapboxgl) {
+        ;new (window as any).mapboxgl.Marker({ color: "#22c55e" })
+          .setLngLat([geofence.center_lng, geofence.center_lat])
+          .setPopup(
+            new (window as any).mapboxgl.Popup().setHTML(
+              `<div class="p-2">
+                <h3 class="font-semibold">${geofence.name}</h3>
+                <p class="text-sm">$${geofence.amount}</p>
+                <p class="text-xs text-gray-600">${geofence.radius}m radius</p>
+              </div>`,
+            ),
+          )
+          .addTo(map)
+      }
+
+      // Add circle for geofence radius
+      map.addSource(`geofence-${index}`, {
+        type: "geojson",
+        data: {
+          type: "Feature",
+          geometry: {
+            type: "Point",
+            coordinates: [geofence.center_lng, geofence.center_lat],
+          },
+        },
+      })
+
+      map.addLayer({
+        id: `geofence-circle-${index}`,
+        type: "circle",
+        source: `geofence-${index}`,
+        paint: {
+          "circle-radius": {
+            stops: [
+              [0, 0],
+              [20, geofence.radius / 2],
+            ],
+            base: 2,
+          },
+          "circle-color": "#22c55e",
+          "circle-opacity": 0.2,
+          "circle-stroke-color": "#22c55e",
+          "circle-stroke-width": 2,
+        },
+      })
+    })
+  }
+
+  // Update circle when radius changes
+  useEffect(() => {
+    if (selectedLocation) {
+      setFormData((prev) => ({ ...prev, radius: selectedRadius }))
+      updateGeofenceCircle(selectedLocation.lat, selectedLocation.lng, selectedRadius)
+    }
+  }, [selectedRadius, selectedLocation])
+
+  function clearSelection() {
+    setSelectedLocation(null)
+    setAddressQuery("")
+    setDrawnFeature(null)
+    clearGeofencePreview()
+
+    if (drawRef.current) {
+      drawRef.current.deleteAll()
+    }
+  }
+
+  function switchDrawingMode(mode: "click" | "draw" | "polygon") {
+    setDrawingMode(mode)
+    clearSelection()
+
+    if (drawRef.current) {
+      if (mode === "draw") {
+        drawRef.current.changeMode("draw_point")
+      } else if (mode === "polygon") {
+        drawRef.current.changeMode("draw_polygon")
+      } else {
+        drawRef.current.changeMode("simple_select")
+      }
+    }
+  }
+
+  async function handleCreateGeofence() {
+    if (!selectedLocation || !formData.name || !formData.amount || !formData.recipientEmail || !user?.id) {
+      alert("Please fill in all required fields and select a location")
+      return
+    }
+
+    try {
+      setCreating(true)
+
+      const geofenceData = {
+        user_id: user.id,
+        name: formData.name,
+        center_lat: selectedLocation.lat,
+        center_lng: selectedLocation.lng,
+        radius: selectedRadius,
+        amount: Number.parseFloat(formData.amount),
+        recipient_email: formData.recipientEmail,
+        memo: formData.memo || null,
+        is_active: true,
+        is_claimed: false,
+      }
+
+      const res = await fetch("/api/geofences", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(geofenceData),
+      })
+
+      if (res.ok) {
+        const { geofence: newGeofence } = await res.json()
+        setGeofences((prev) => [newGeofence, ...prev])
+
+        // Reset form
+        setFormData({
+          name: "",
+          amount: "",
+          recipientEmail: "",
+          memo: "",
+          radius: 100,
+        })
+        clearSelection()
+        setSelectedRadius(100)
+
+        alert("Geofence created successfully!")
+        loadGeofencesOnMap()
+      } else {
+        const { error } = await res.json()
+        alert(`Failed to create geofence: ${error}`)
+      }
+    } catch (error) {
+      console.error("Error creating geofence:", error)
+      alert("Error creating geofence")
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  if (!mapboxToken) {
     return (
       <DashboardLayout>
         <div className="max-w-4xl mx-auto space-y-6">
@@ -438,7 +535,7 @@ export default function GeofenceTransferPage() {
           <Card className="border-2 border-red-200 bg-red-50">
             <CardHeader>
               <CardTitle className="flex items-center space-x-2 text-red-800">
-                <AlertCircle className="h-5 w-5" />
+                <Clock className="h-5 w-5" />
                 <span>Mapbox Configuration Required</span>
               </CardTitle>
             </CardHeader>
@@ -477,9 +574,15 @@ export default function GeofenceTransferPage() {
   return (
     <DashboardLayout>
       <div className="max-w-6xl mx-auto space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Geofenced Transfers</h1>
-          <p className="text-gray-600">Send money that can only be collected in specific locations</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Geofenced Transfers</h1>
+            <p className="text-gray-600">Send money that can only be collected in specific locations</p>
+          </div>
+          <div className="text-right">
+            <p className="text-sm text-gray-600">Logged in as</p>
+            <p className="font-semibold text-purple-900">{user?.displayName || user?.primaryEmail}</p>
+          </div>
         </div>
 
         <div className="grid lg:grid-cols-2 gap-6">
@@ -488,61 +591,143 @@ export default function GeofenceTransferPage() {
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
                 <MapPin className="h-5 w-5" />
-                <span>Select Location</span>
+                <span>Define Geofence Area</span>
               </CardTitle>
-              <CardDescription>
-                {isDrawingMode
-                  ? "Click and drag to draw a circle for your geofence area"
-                  : "Choose where the recipient can collect the funds"}
-              </CardDescription>
+              <CardDescription>Search for an address, click on the map, or draw to set location</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {isDrawingMode && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <div className="flex items-center space-x-2">
-                      <Target className="h-5 w-5 text-blue-600" />
-                      <div>
-                        <p className="font-medium text-blue-800">Drawing Mode Active</p>
-                        <p className="text-sm text-blue-600">
-                          Click and drag on the map to create your geofence circle
-                          {currentRadius > 0 && ` (${Math.round(currentRadius)}m radius)`}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {selectedGeofence && (
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                    <div className="flex items-center space-x-2">
-                      <CheckCircle className="h-5 w-5 text-green-600" />
-                      <div>
-                        <p className="font-medium text-green-800">Geofence Selected</p>
-                        <p className="text-sm text-green-600">Radius: {Math.round(selectedGeofence.radius)} meters</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
+                {/* Drawing Mode Toggle */}
                 <div className="flex space-x-2">
-                  {!isDrawingMode ? (
-                    <Button onClick={startDrawing} className="flex items-center space-x-2">
-                      <Target className="h-4 w-4" />
-                      <span>Draw Circle</span>
-                    </Button>
-                  ) : (
-                    <Button onClick={cancelDrawing} variant="outline">
-                      Cancel Drawing
-                    </Button>
+                  <Button
+                    variant={drawingMode === "click" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => switchDrawingMode("click")}
+                    className="flex items-center space-x-2"
+                  >
+                    <Hand className="h-4 w-4" />
+                    <span>Click</span>
+                  </Button>
+                  <Button
+                    variant={drawingMode === "draw" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => switchDrawingMode("draw")}
+                    className="flex items-center space-x-2"
+                  >
+                    <Circle className="h-4 w-4" />
+                    <span>Point</span>
+                  </Button>
+                  <Button
+                    variant={drawingMode === "polygon" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => switchDrawingMode("polygon")}
+                    className="flex items-center space-x-2"
+                  >
+                    <Pencil className="h-4 w-4" />
+                    <span>Area</span>
+                  </Button>
+                </div>
+
+                {/* Mode Instructions */}
+                <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
+                  {drawingMode === "click" && (
+                    <p>
+                      🖱️ <strong>Click Mode:</strong> Click anywhere on the map to place your geofence center
+                    </p>
+                  )}
+                  {drawingMode === "draw" && (
+                    <p>
+                      📍 <strong>Point Mode:</strong> Use the point tool to place and drag points on the map
+                    </p>
+                  )}
+                  {drawingMode === "polygon" && (
+                    <p>
+                      ✏️ <strong>Area Mode:</strong> Draw a custom area by clicking to create polygon vertices
+                    </p>
                   )}
                 </div>
 
+                {/* Address Search */}
+                <div className="relative">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                    <Input
+                      placeholder="Search for an address..."
+                      value={addressQuery}
+                      onChange={(e) => {
+                        setAddressQuery(e.target.value)
+                        searchAddresses(e.target.value)
+                      }}
+                      className="pl-10"
+                    />
+                  </div>
+
+                  {showSuggestions && addressSuggestions.length > 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto">
+                      {addressSuggestions.map((suggestion) => (
+                        <button
+                          key={suggestion.id}
+                          onClick={() => selectAddress(suggestion)}
+                          className="w-full px-4 py-2 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
+                        >
+                          <div className="flex items-center space-x-2">
+                            <MapPin className="h-4 w-4 text-gray-400" />
+                            <span className="text-sm">{suggestion.place_name}</span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Radius Control */}
+                <div>
+                  <Label htmlFor="radius-slider">Geofence Radius: {selectedRadius}m</Label>
+                  <input
+                    id="radius-slider"
+                    type="range"
+                    min="10"
+                    max="1000"
+                    step="10"
+                    value={selectedRadius}
+                    onChange={(e) => setSelectedRadius(Number(e.target.value))}
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer mt-2"
+                  />
+                  <div className="flex justify-between text-xs text-gray-500 mt-1">
+                    <span>10m</span>
+                    <span>1000m</span>
+                  </div>
+                </div>
+
+                {/* Map */}
                 <div
-                  ref={mapContainer}
+                  ref={mapContainerRef}
                   className="w-full h-96 rounded-lg border border-gray-200"
                   style={{ minHeight: "400px" }}
                 />
+
+                {/* Selected Location Info */}
+                {selectedLocation && (
+                  <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                    <div>
+                      <p className="text-sm font-medium text-blue-800">
+                        Selected Location: {selectedLocation.lat.toFixed(6)}, {selectedLocation.lng.toFixed(6)}
+                      </p>
+                      <p className="text-xs text-blue-600">
+                        Radius: {selectedRadius}m • Mode:{" "}
+                        {drawingMode === "click" ? "Click" : drawingMode === "draw" ? "Point" : "Area"}
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={clearSelection}
+                      className="text-blue-600 border-blue-200 hover:bg-blue-100 bg-transparent"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -551,136 +736,126 @@ export default function GeofenceTransferPage() {
           <Card className="lg:col-span-1">
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
-                <Send className="h-5 w-5" />
+                <DollarSign className="h-5 w-5" />
                 <span>Transfer Details</span>
               </CardTitle>
               <CardDescription>Configure your geofenced money transfer</CardDescription>
             </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="recipient">Recipient Email</Label>
-                  <Input
-                    id="recipient"
-                    name="recipient"
-                    type="email"
-                    placeholder="recipient@example.com"
-                    value={transferData.recipient}
-                    onChange={handleInputChange}
-                    required
-                  />
-                </div>
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="name">Geofence Name</Label>
+                <Input
+                  id="name"
+                  placeholder="e.g., Coffee Shop Transfer"
+                  value={formData.name}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
+                />
+              </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="amount">Amount ($)</Label>
-                  <Input
-                    id="amount"
-                    name="amount"
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={transferData.amount}
-                    onChange={handleInputChange}
-                    required
-                  />
-                </div>
+              <div>
+                <Label htmlFor="amount">Amount ($)</Label>
+                <Input
+                  id="amount"
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  placeholder="25.00"
+                  value={formData.amount}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, amount: e.target.value }))}
+                />
+              </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="memo">Memo (Optional)</Label>
-                  <Textarea
-                    id="memo"
-                    name="memo"
-                    placeholder="What's this for?"
-                    value={transferData.memo}
-                    onChange={handleInputChange}
-                  />
-                </div>
+              <div>
+                <Label htmlFor="recipient">Recipient Email</Label>
+                <Input
+                  id="recipient"
+                  type="email"
+                  placeholder="friend@example.com"
+                  value={formData.recipientEmail}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, recipientEmail: e.target.value }))}
+                />
+              </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="timeLimit">Time Limit (hours)</Label>
-                  <Input
-                    id="timeLimit"
-                    name="timeLimit"
-                    type="number"
-                    min="1"
-                    max="168"
-                    value={transferData.timeLimit}
-                    onChange={handleInputChange}
-                  />
-                </div>
+              <div>
+                <Label htmlFor="memo">Memo (Optional)</Label>
+                <Textarea
+                  id="memo"
+                  placeholder="Coffee money when you get to the shop!"
+                  value={formData.memo}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, memo: e.target.value }))}
+                />
+              </div>
 
-                {transferData.amount && (
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                    <div className="flex items-start space-x-2">
-                      <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5" />
-                      <div className="space-y-2">
-                        <h4 className="font-medium text-yellow-800">Transaction Summary</h4>
-                        <div className="text-sm text-yellow-700 space-y-1">
-                          <p>Transfer Amount: ${Number.parseFloat(transferData.amount).toFixed(2)}</p>
-                          <p>Money Buddy Fee (2%): ${(Number.parseFloat(transferData.amount) * 0.02).toFixed(2)}</p>
-                          <p className="font-medium">
-                            Total Deducted: ${(Number.parseFloat(transferData.amount) * 1.02).toFixed(2)}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                <Button type="submit" className="w-full" disabled={!selectedGeofence || isLoading}>
-                  {isLoading ? "Creating Transfer..." : "Create Geofenced Transfer"}
-                </Button>
-              </form>
+              <Button onClick={handleCreateGeofence} disabled={creating || !selectedLocation} className="w-full">
+                {creating ? "Creating..." : "Create Geofence"}
+              </Button>
             </CardContent>
           </Card>
         </div>
 
-        {/* Existing Geofences */}
-        {existingGeofences.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Your Active Geofences</CardTitle>
-              <CardDescription>Manage your existing geofenced transfers</CardDescription>
-            </CardHeader>
-            <CardContent>
+        {/* Existing Geofences List */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Your Active Geofences ({geofences.length})
+            </CardTitle>
+            <CardDescription>Manage your location-based transfers</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                <p className="mt-2 text-gray-600">Loading geofences...</p>
+              </div>
+            ) : geofences.length === 0 ? (
+              <div className="text-center py-8">
+                <Target className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                <h3 className="text-lg font-semibold mb-2">No Geofences Yet</h3>
+                <p className="text-gray-600">Create your first location-based transfer above</p>
+              </div>
+            ) : (
               <div className="space-y-4">
-                {existingGeofences.map((geofence) => (
-                  <div
-                    key={geofence.id}
-                    className="flex items-center justify-between p-4 border border-gray-200 rounded-lg"
-                  >
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
-                        <MapPin className="h-5 w-5 text-purple-600" />
-                      </div>
-                      <div>
-                        <p className="font-medium text-gray-900">{geofence.name}</p>
-                        <p className="text-sm text-gray-500">
-                          ${geofence.amount} to {geofence.recipient_email}
+                {geofences.map((geofence) => (
+                  <div key={geofence.id} className="border rounded-lg p-4">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h3 className="font-semibold">{geofence.name}</h3>
+                        <p className="text-sm text-gray-600">To: {geofence.recipient_email}</p>
+                        <p className="text-sm text-gray-600">
+                          Location: {geofence.center_lat.toFixed(4)}, {geofence.center_lng.toFixed(4)}
                         </p>
-                        <p className="text-sm text-gray-500">Radius: {geofence.radius}m</p>
+                        {geofence.memo && <p className="text-sm text-gray-600 mt-1">"{geofence.memo}"</p>}
+                      </div>
+                      <div className="text-right">
+                        <p className="text-lg font-bold text-green-600">${geofence.amount.toFixed(2)}</p>
+                        <p className="text-xs text-gray-500">{geofence.radius}m radius</p>
+                        <Badge variant={geofence.is_claimed ? "secondary" : "default"} className="mt-1">
+                          {geofence.is_claimed ? "Claimed" : "Active"}
+                        </Badge>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <Badge
-                        className={geofence.is_claimed ? "bg-green-100 text-green-800" : "bg-blue-100 text-blue-800"}
-                      >
-                        {geofence.is_claimed ? "Claimed" : "Active"}
-                      </Badge>
-                      {geofence.expires_at && (
-                        <p className="text-sm text-gray-500 mt-1">
-                          <Clock className="h-3 w-3 inline mr-1" />
-                          Expires: {new Date(geofence.expires_at).toLocaleDateString()}
-                        </p>
-                      )}
+                    <div className="flex items-center gap-4 mt-3 text-xs text-gray-500">
+                      <span className="flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        Created {new Date(geofence.created_at).toLocaleDateString()}
+                      </span>
                     </div>
                   </div>
                 ))}
               </div>
-            </CardContent>
-          </Card>
-        )}
+            )}
+          </CardContent>
+        </Card>
       </div>
     </DashboardLayout>
+  )
+}
+
+export default function GeofenceTransferPage() {
+  return (
+    <AuthGuard>
+      <GeofenceTransferContent />
+    </AuthGuard>
   )
 }

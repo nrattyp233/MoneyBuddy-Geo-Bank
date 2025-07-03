@@ -1,62 +1,50 @@
-import { createClient, type SupabaseClient } from "@supabase/supabase-js"
+import { createClient } from "@supabase/supabase-js"
 
-/* ------------------------------------------------------------------
-   Helper – resolve env vars depending on execution context
--------------------------------------------------------------------*/
-function getEnv(name: string, publicName: string) {
-  // In the browser we only have access to NEXT_PUBLIC_* vars
-  if (typeof window !== "undefined") {
-    return process.env[publicName]
+// Environment variable helper
+function getEnv() {
+  if (typeof window === "undefined") {
+    // Server-side: use regular env vars
+    return {
+      url: process.env.SUPABASE_URL || "",
+      anonKey: process.env.SUPABASE_ANON_KEY || "",
+      serviceKey: process.env.SUPABASE_SERVICE_ROLE_KEY || "",
+    }
+  } else {
+    // Client-side: use public env vars
+    return {
+      url: process.env.NEXT_PUBLIC_SUPABASE_URL || "",
+      anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
+      serviceKey: "", // Not available on client
+    }
   }
-  // On the server we prefer the private var, fall back to public if present
-  return process.env[name] ?? process.env[publicName]
 }
 
-/* ------------------------------------------------------------------
-   Client-side (anon) Supabase instance – works in both browser & SSR
--------------------------------------------------------------------*/
-const supabaseUrl = getEnv("SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_URL")
-const supabaseAnonKey = getEnv("SUPABASE_ANON_KEY", "NEXT_PUBLIC_SUPABASE_ANON_KEY")
+const env = getEnv()
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error(
-    "Supabase environment variables are missing. " +
-      "Make sure SUPABASE_URL / SUPABASE_ANON_KEY are set on the server " +
-      "and NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY are set for the client.",
-  )
+// Only create clients if we have the required environment variables
+let supabase: any = null
+let supabaseAdmin: any = null
+
+if (env.url && env.anonKey) {
+  // Client for general use (works on both server and client)
+  supabase = createClient(env.url, env.anonKey)
+
+  // Admin client (server-only)
+  if (typeof window === "undefined" && env.serviceKey) {
+    supabaseAdmin = createClient(env.url, env.serviceKey)
+  }
 }
 
-export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey)
+// Export with null checks
+export { supabase, supabaseAdmin }
 
-/* ------------------------------------------------------------------
-   Server-only Service-Role client  (created **only** when not in browser)
--------------------------------------------------------------------*/
-export const supabaseAdmin: SupabaseClient | null =
-  typeof window === "undefined"
-    ? createClient(supabaseUrl, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
-        auth: { autoRefreshToken: false, persistSession: false },
-      })
-    : null
-
-// Database types
+// Types
 export interface User {
   id: string
   email: string
-  name: string
-  phone?: string
+  full_name?: string
   balance: number
   savings_balance: number
-  created_at: string
-  updated_at: string
-}
-
-export interface Account {
-  id: string
-  user_id: string
-  account_number: string
-  account_type: "checking" | "savings"
-  balance: number
-  is_active: boolean
   created_at: string
   updated_at: string
 }
@@ -64,18 +52,14 @@ export interface Account {
 export interface Transaction {
   id: string
   user_id: string
-  account_id?: string
-  type: "deposit" | "withdrawal" | "transfer" | "geofence_transfer"
+  type: "deposit" | "withdrawal" | "transfer" | "geofence"
   amount: number
   fee: number
-  description?: string
+  status: "pending" | "completed" | "failed"
+  description: string
   recipient_email?: string
-  recipient_id?: string
-  status: "pending" | "completed" | "failed" | "cancelled"
   square_payment_id?: string
-  metadata?: Record<string, any>
   created_at: string
-  updated_at: string
 }
 
 export interface Geofence {
@@ -102,55 +86,27 @@ export interface SavingsLock {
   id: string
   user_id: string
   amount: number
-  lock_duration: number
   interest_rate: number
+  lock_duration_days: number
   locked_at: string
   unlocks_at: string
-  is_unlocked: boolean
-  unlocked_at?: string
-  created_at: string
-  updated_at: string
-}
-
-export interface ChatMessage {
-  id: string
-  user_id: string
-  message: string
-  response: string
-  session_id?: string
-  created_at: string
-}
-
-export interface PaymentMethod {
-  id: string
-  user_id: string
-  type: "card" | "bank_account"
-  provider: string
-  provider_id: string
-  last_four?: string
-  brand?: string
-  is_default: boolean
   is_active: boolean
-  metadata?: Record<string, any>
   created_at: string
-  updated_at: string
 }
 
-export interface Notification {
-  id: string
-  user_id: string
-  title: string
-  message: string
-  type: "transaction" | "geofence" | "savings" | "security"
-  is_read: boolean
-  metadata?: Record<string, any>
-  created_at: string
-  updated_at: string
+// Helper function to check if Supabase is configured
+export function isSupabaseConfigured(): boolean {
+  return !!(env.url && env.anonKey)
 }
 
-// Helper functions
-export async function getUserById(id: string): Promise<User | null> {
-  const { data, error } = await supabase.from("users").select("*").eq("id", id).single()
+// User functions
+export async function getUserByEmail(email: string): Promise<User | null> {
+  if (!supabase) {
+    console.error("Supabase not configured")
+    return null
+  }
+
+  const { data, error } = await supabase.from("users").select("*").eq("email", email).single()
 
   if (error) {
     console.error("Error fetching user:", error)
@@ -160,19 +116,13 @@ export async function getUserById(id: string): Promise<User | null> {
   return data
 }
 
-export async function getUserByEmail(email: string): Promise<User | null> {
-  const { data, error } = await supabase.from("users").select("*").eq("email", email).single()
-
-  if (error) {
-    console.error("Error fetching user by email:", error)
+export async function createUser(userData: Partial<User>): Promise<User | null> {
+  if (!supabase) {
+    console.error("Supabase not configured")
     return null
   }
 
-  return data
-}
-
-export async function createUser(userData: Omit<User, "id" | "created_at" | "updated_at">): Promise<User | null> {
-  const { data, error } = await supabase.from("users").insert(userData).select().single()
+  const { data, error } = await supabase.from("users").insert([userData]).select().single()
 
   if (error) {
     console.error("Error creating user:", error)
@@ -182,13 +132,37 @@ export async function createUser(userData: Omit<User, "id" | "created_at" | "upd
   return data
 }
 
-export async function getUserTransactions(userId: string, limit = 10): Promise<Transaction[]> {
+export async function updateUserBalance(userId: string, newBalance: number): Promise<boolean> {
+  if (!supabase) {
+    console.error("Supabase not configured")
+    return false
+  }
+
+  const { error } = await supabase
+    .from("users")
+    .update({ balance: newBalance, updated_at: new Date().toISOString() })
+    .eq("id", userId)
+
+  if (error) {
+    console.error("Error updating user balance:", error)
+    return false
+  }
+
+  return true
+}
+
+// Transaction functions
+export async function getUserTransactions(userId: string): Promise<Transaction[]> {
+  if (!supabase) {
+    console.error("Supabase not configured")
+    return []
+  }
+
   const { data, error } = await supabase
     .from("transactions")
     .select("*")
     .eq("user_id", userId)
     .order("created_at", { ascending: false })
-    .limit(limit)
 
   if (error) {
     console.error("Error fetching transactions:", error)
@@ -198,10 +172,13 @@ export async function getUserTransactions(userId: string, limit = 10): Promise<T
   return data || []
 }
 
-export async function createTransaction(
-  transactionData: Omit<Transaction, "id" | "created_at" | "updated_at">,
-): Promise<Transaction | null> {
-  const { data, error } = await supabase.from("transactions").insert(transactionData).select().single()
+export async function createTransaction(transactionData: Partial<Transaction>): Promise<Transaction | null> {
+  if (!supabase) {
+    console.error("Supabase not configured")
+    return null
+  }
+
+  const { data, error } = await supabase.from("transactions").insert([transactionData]).select().single()
 
   if (error) {
     console.error("Error creating transaction:", error)
@@ -211,12 +188,33 @@ export async function createTransaction(
   return data
 }
 
+export async function updateTransactionStatus(transactionId: string, status: Transaction["status"]): Promise<boolean> {
+  if (!supabase) {
+    console.error("Supabase not configured")
+    return false
+  }
+
+  const { error } = await supabase.from("transactions").update({ status }).eq("id", transactionId)
+
+  if (error) {
+    console.error("Error updating transaction status:", error)
+    return false
+  }
+
+  return true
+}
+
+// Geofence functions
 export async function getUserGeofences(userId: string): Promise<Geofence[]> {
+  if (!supabase) {
+    console.error("Supabase not configured")
+    return []
+  }
+
   const { data, error } = await supabase
     .from("geofences")
     .select("*")
     .eq("user_id", userId)
-    .eq("is_active", true)
     .order("created_at", { ascending: false })
 
   if (error) {
@@ -227,10 +225,13 @@ export async function getUserGeofences(userId: string): Promise<Geofence[]> {
   return data || []
 }
 
-export async function createGeofence(
-  geofenceData: Omit<Geofence, "id" | "created_at" | "updated_at">,
-): Promise<Geofence | null> {
-  const { data, error } = await supabase.from("geofences").insert(geofenceData).select().single()
+export async function createGeofence(geofenceData: Partial<Geofence>): Promise<Geofence | null> {
+  if (!supabase) {
+    console.error("Supabase not configured")
+    return null
+  }
+
+  const { data, error } = await supabase.from("geofences").insert([geofenceData]).select().single()
 
   if (error) {
     console.error("Error creating geofence:", error)
@@ -241,6 +242,11 @@ export async function createGeofence(
 }
 
 export async function getActiveGeofencesAtLocation(lat: number, lng: number): Promise<Geofence[]> {
+  if (!supabase) {
+    console.error("Supabase not configured")
+    return []
+  }
+
   const { data, error } = await supabase.rpc("get_active_geofences_at_location", {
     check_lat: lat,
     check_lng: lng,
@@ -254,7 +260,35 @@ export async function getActiveGeofencesAtLocation(lat: number, lng: number): Pr
   return data || []
 }
 
+export async function claimGeofence(geofenceId: string): Promise<boolean> {
+  if (!supabase) {
+    console.error("Supabase not configured")
+    return false
+  }
+
+  const { error } = await supabase
+    .from("geofences")
+    .update({
+      is_claimed: true,
+      claimed_at: new Date().toISOString(),
+    })
+    .eq("id", geofenceId)
+
+  if (error) {
+    console.error("Error claiming geofence:", error)
+    return false
+  }
+
+  return true
+}
+
+// Savings functions
 export async function getUserSavingsLocks(userId: string): Promise<SavingsLock[]> {
+  if (!supabase) {
+    console.error("Supabase not configured")
+    return []
+  }
+
   const { data, error } = await supabase
     .from("savings_locks")
     .select("*")
@@ -269,10 +303,13 @@ export async function getUserSavingsLocks(userId: string): Promise<SavingsLock[]
   return data || []
 }
 
-export async function createSavingsLock(
-  lockData: Omit<SavingsLock, "id" | "created_at" | "updated_at">,
-): Promise<SavingsLock | null> {
-  const { data, error } = await supabase.from("savings_locks").insert(lockData).select().single()
+export async function createSavingsLock(lockData: Partial<SavingsLock>): Promise<SavingsLock | null> {
+  if (!supabase) {
+    console.error("Supabase not configured")
+    return null
+  }
+
+  const { data, error } = await supabase.from("savings_locks").insert([lockData]).select().single()
 
   if (error) {
     console.error("Error creating savings lock:", error)
@@ -280,31 +317,4 @@ export async function createSavingsLock(
   }
 
   return data
-}
-
-export async function getUserNotifications(userId: string, limit = 20): Promise<Notification[]> {
-  const { data, error } = await supabase
-    .from("notifications")
-    .select("*")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false })
-    .limit(limit)
-
-  if (error) {
-    console.error("Error fetching notifications:", error)
-    return []
-  }
-
-  return data || []
-}
-
-export async function markNotificationAsRead(notificationId: string): Promise<boolean> {
-  const { error } = await supabase.from("notifications").update({ is_read: true }).eq("id", notificationId)
-
-  if (error) {
-    console.error("Error marking notification as read:", error)
-    return false
-  }
-
-  return true
 }
