@@ -1,157 +1,212 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { MapPin, ExternalLink, AlertCircle, CheckCircle } from "lucide-react"
+import { CheckCircle, XCircle, AlertCircle, ExternalLink, RefreshCw } from "lucide-react"
+
+interface MapboxStatus {
+  hasToken: boolean
+  isValidFormat: boolean
+  isWorking: boolean
+  error?: string
+  isLoading: boolean
+}
 
 export function MapboxStatus() {
-  const [token, setToken] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [status, setStatus] = useState<MapboxStatus>({
+    hasToken: false,
+    isValidFormat: false,
+    isWorking: false,
+    isLoading: true,
+  })
+
+  const checkMapboxStatus = async () => {
+    setStatus((prev) => ({ ...prev, isLoading: true, error: undefined }))
+
+    try {
+      const token = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN
+
+      // Token presence / placeholder / format check
+      if (
+        !token ||
+        !token.startsWith("pk.") ||
+        token.includes("your_mapbox_access_token_here") ||
+        token.match(/<.*MAPBOX.*TOKEN.*>/i)
+      ) {
+        setStatus({
+          hasToken: !!token,
+          isValidFormat: token?.startsWith("pk.") ?? false,
+          isWorking: false,
+          isLoading: false,
+          error: "NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN is missing or still the sample value.",
+        })
+        return
+      }
+
+      // Test token by making API call
+      const response = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/test.json?access_token=${token}`)
+
+      if (response.ok) {
+        setStatus({
+          hasToken: true,
+          isValidFormat: true,
+          isWorking: true,
+          isLoading: false,
+        })
+      } else {
+        let errorMessage = `API returned ${response.status}: ${response.statusText}`
+
+        if (response.status === 401) {
+          errorMessage = "Token is invalid or expired. Please check your Mapbox account."
+        } else if (response.status === 403) {
+          errorMessage = "Token doesn't have the required permissions for geocoding API."
+        }
+
+        setStatus({
+          hasToken: true,
+          isValidFormat: true,
+          isWorking: false,
+          isLoading: false,
+          error: errorMessage,
+        })
+      }
+    } catch (error) {
+      setStatus({
+        hasToken: true,
+        isValidFormat: true,
+        isWorking: false,
+        isLoading: false,
+        error: `Network error: ${error instanceof Error ? error.message : "Unknown error"}`,
+      })
+    }
+  }
 
   useEffect(() => {
-    fetch("/api/mapbox/token")
-      .then((res) => res.json())
-      .then((data) => {
-        setToken(data.token)
-        setIsLoading(false)
-      })
-      .catch((err) => {
-        console.error("Failed to fetch Mapbox token:", err)
-        setIsLoading(false)
-      })
+    checkMapboxStatus()
   }, [])
 
-  const isValidToken =
-    token && token.startsWith("pk.") && !token.includes("your_mapbox_token_here") && token.length > 20
+  const getStatusIcon = () => {
+    if (status.isLoading) {
+      return <RefreshCw className="h-5 w-5 text-blue-500 animate-spin" />
+    }
 
-  const isConfigured = Boolean(token)
-  const tokenPreview = token ? `${token.substring(0, 8)}...${token.substring(token.length - 8)}` : "Not set"
+    if (status.isWorking) {
+      return <CheckCircle className="h-5 w-5 text-green-500" />
+    }
 
-  if (isLoading) {
-    return (
-      <Card className="border-2 border-gray-200 bg-gray-50">
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <MapPin className="h-5 w-5" />
-            <span>Mapbox Configuration</span>
-            <Badge className="bg-gray-100 text-gray-800">Loading...</Badge>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-gray-600">Checking Mapbox configuration...</p>
-        </CardContent>
-      </Card>
-    )
+    if (!status.hasToken || !status.isValidFormat) {
+      return <XCircle className="h-5 w-5 text-red-500" />
+    }
+
+    return <AlertCircle className="h-5 w-5 text-yellow-500" />
+  }
+
+  const getStatusText = () => {
+    if (status.isLoading) return "Checking Mapbox configuration..."
+    if (status.isWorking) return "Mapbox is configured and working correctly"
+    if (!status.hasToken) return "Mapbox token not found"
+    if (!status.isValidFormat) return "Invalid Mapbox token format"
+    return "Mapbox token found but not working"
+  }
+
+  const getStatusColor = () => {
+    if (status.isLoading) return "border-blue-200 bg-blue-50"
+    if (status.isWorking) return "border-green-200 bg-green-50"
+    if (!status.hasToken || !status.isValidFormat) return "border-red-200 bg-red-50"
+    return "border-yellow-200 bg-yellow-50"
   }
 
   return (
-    <Card className={`border-2 ${isValidToken ? "border-green-200 bg-green-50" : "border-yellow-200 bg-yellow-50"}`}>
+    <Card className={`border-2 ${getStatusColor()}`}>
       <CardHeader>
         <CardTitle className="flex items-center space-x-2">
-          <MapPin className="h-5 w-5" />
-          <span>Mapbox Configuration</span>
-          {isValidToken ? (
-            <Badge className="bg-green-100 text-green-800">
-              <CheckCircle className="h-3 w-3 mr-1" />
-              Configured
-            </Badge>
-          ) : (
-            <Badge className="bg-yellow-100 text-yellow-800">
-              <AlertCircle className="h-3 w-3 mr-1" />
-              {isConfigured ? "Invalid Token" : "Not Configured"}
-            </Badge>
-          )}
+          {getStatusIcon()}
+          <span>Mapbox Integration Status</span>
         </CardTitle>
-        <CardDescription>Mapbox powers the geofencing and location features in Money Buddy</CardDescription>
+        <CardDescription>Status of your Mapbox configuration for geofenced transfers</CardDescription>
       </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <h4 className="font-medium text-gray-900 mb-2">Status</h4>
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm">Access Token</span>
-                  <Badge className={isValidToken ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}>
-                    {isValidToken ? "Valid" : "Invalid/Missing"}
-                  </Badge>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm">Token Preview</span>
-                  <code className="text-xs bg-gray-100 px-2 py-1 rounded">{tokenPreview}</code>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm">Geofencing</span>
-                  <Badge className={isValidToken ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}>
-                    {isValidToken ? "Enabled" : "Disabled"}
-                  </Badge>
-                </div>
-              </div>
-            </div>
+      <CardContent className="space-y-4">
+        <div className="flex items-center justify-between">
+          <span className="font-medium">Status:</span>
+          <span className={`font-bold ${status.isWorking ? "text-green-600" : "text-red-600"}`}>{getStatusText()}</span>
+        </div>
 
-            <div>
-              <h4 className="font-medium text-gray-900 mb-2">Features</h4>
-              <div className="space-y-2 text-sm">
-                <div className="flex items-center space-x-2">
-                  <div className={`w-2 h-2 rounded-full ${isValidToken ? "bg-green-500" : "bg-gray-400"}`}></div>
-                  <span>Interactive Maps</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <div className={`w-2 h-2 rounded-full ${isValidToken ? "bg-green-500" : "bg-gray-400"}`}></div>
-                  <span>Circle Drawing</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <div className={`w-2 h-2 rounded-full ${isValidToken ? "bg-green-500" : "bg-gray-400"}`}></div>
-                  <span>Location Services</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <div className={`w-2 h-2 rounded-full ${isValidToken ? "bg-green-500" : "bg-gray-400"}`}></div>
-                  <span>Geofenced Transfers</span>
-                </div>
-              </div>
-            </div>
+        <div className="space-y-2">
+          <div className="flex items-center space-x-2">
+            {status.hasToken ? (
+              <CheckCircle className="h-4 w-4 text-green-500" />
+            ) : (
+              <XCircle className="h-4 w-4 text-red-500" />
+            )}
+            <span className="text-sm">Token Present</span>
           </div>
 
-          {!isValidToken && (
-            <div className="bg-yellow-100 border border-yellow-200 rounded-lg p-4">
-              <div className="flex items-start space-x-2">
-                <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5" />
-                <div className="space-y-2">
-                  <h4 className="font-medium text-yellow-800">Setup Required</h4>
-                  <p className="text-sm text-yellow-700">
-                    To enable geofencing features, you need to configure your Mapbox access token.
-                  </p>
-                  <div className="space-y-2">
-                    <p className="text-sm text-yellow-700 font-medium">Setup Steps:</p>
-                    <ol className="list-decimal list-inside space-y-1 text-sm text-yellow-700">
-                      <li>Create a Mapbox account at mapbox.com</li>
-                      <li>Generate a new access token</li>
-                      <li>Add MAPBOX_ACCESS_TOKEN to your environment</li>
-                      <li>Restart your application</li>
-                    </ol>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+          <div className="flex items-center space-x-2">
+            {status.isValidFormat ? (
+              <CheckCircle className="h-4 w-4 text-green-500" />
+            ) : (
+              <XCircle className="h-4 w-4 text-red-500" />
+            )}
+            <span className="text-sm">Valid Format</span>
+          </div>
 
-          <div className="flex space-x-2">
-            <Button variant="outline" size="sm" asChild>
-              <a href="https://account.mapbox.com/" target="_blank" rel="noopener noreferrer">
-                <ExternalLink className="h-4 w-4 mr-2" />
-                Mapbox Account
-              </a>
-            </Button>
-            <Button variant="outline" size="sm" asChild>
-              <a href="https://docs.mapbox.com/api/overview/" target="_blank" rel="noopener noreferrer">
-                <ExternalLink className="h-4 w-4 mr-2" />
-                Documentation
-              </a>
-            </Button>
+          <div className="flex items-center space-x-2">
+            {status.isWorking ? (
+              <CheckCircle className="h-4 w-4 text-green-500" />
+            ) : (
+              <XCircle className="h-4 w-4 text-red-500" />
+            )}
+            <span className="text-sm">API Working</span>
           </div>
         </div>
+
+        {status.error && (
+          <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-sm text-red-600 font-medium">Error Details:</p>
+            <p className="text-sm text-red-600">{status.error}</p>
+          </div>
+        )}
+
+        {!status.isWorking && (
+          <div className="space-y-3">
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-800 font-medium">How to fix:</p>
+              <ol className="text-sm text-blue-700 mt-2 space-y-1 list-decimal list-inside">
+                <li>Go to your Mapbox account dashboard</li>
+                <li>Create a new access token or copy an existing one</li>
+                <li>Add it to your environment variables as NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN</li>
+                <li>Restart your development server</li>
+              </ol>
+            </div>
+
+            <div className="flex space-x-2">
+              <Button onClick={checkMapboxStatus} disabled={status.isLoading} size="sm" variant="outline">
+                <RefreshCw className={`h-4 w-4 mr-2 ${status.isLoading ? "animate-spin" : ""}`} />
+                Recheck Status
+              </Button>
+
+              <Button
+                onClick={() => window.open("https://account.mapbox.com/access-tokens/", "_blank")}
+                size="sm"
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                <ExternalLink className="h-4 w-4 mr-2" />
+                Get Token
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {status.isWorking && (
+          <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+            <p className="text-sm text-green-800 font-medium">✅ Ready to use!</p>
+            <p className="text-sm text-green-700">
+              Your Mapbox integration is working correctly. You can now create geofenced transfers with custom drawn
+              circles.
+            </p>
+          </div>
+        )}
       </CardContent>
     </Card>
   )

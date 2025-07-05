@@ -1,6 +1,7 @@
 "use client"
 
 import type React from "react"
+
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -23,6 +24,7 @@ export default function LoginPage() {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
 
+    // Clear error when user starts typing
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: "" }))
     }
@@ -55,16 +57,20 @@ export default function LoginPage() {
     setIsLoading(true)
 
     try {
+      // Simulate login process
       await new Promise((resolve) => setTimeout(resolve, 1500))
 
+      // Check if user exists in localStorage
       const existingUser = localStorage.getItem("moneyBuddyUser")
       let userData
 
       if (existingUser) {
+        // Load existing user data
         userData = JSON.parse(existingUser)
         userData.lastLogin = new Date().toISOString()
         userData.isAuthenticated = true
       } else {
+        // Create demo user for login
         userData = {
           firstName: "Demo",
           lastName: "User",
@@ -76,8 +82,11 @@ export default function LoginPage() {
         }
       }
 
+      // Store user data in multiple places for persistence
       localStorage.setItem("moneyBuddyUser", JSON.stringify(userData))
       sessionStorage.setItem("moneyBuddyUser", JSON.stringify(userData))
+
+      // Store individual fields as backup
       localStorage.setItem("userFirstName", userData.firstName)
       localStorage.setItem("userLastName", userData.lastName)
       localStorage.setItem("userFullName", userData.fullName)
@@ -85,6 +94,8 @@ export default function LoginPage() {
       localStorage.setItem("isAuthenticated", "true")
 
       console.log("User logged in and data stored:", userData)
+
+      // Redirect to dashboard
       router.push("/dashboard")
     } catch (error) {
       console.error("Login error:", error)
@@ -96,6 +107,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-600 via-blue-600 to-lime-500 flex items-center justify-center p-4">
+      {/* Animated background elements */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-white/10 rounded-full blur-3xl animate-pulse"></div>
         <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-lime-400/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
@@ -105,7 +117,7 @@ export default function LoginPage() {
       <Card className="w-full max-w-md border-2 border-white/30 bg-gradient-to-br from-white/95 to-white/90 backdrop-blur-sm shadow-2xl relative z-10">
         <CardHeader className="text-center space-y-4">
           <div className="flex justify-center">
-            <MoneyBuddyLogo size={64} />
+            <MoneyBuddyLogo className="w-16 h-16" />
           </div>
           <div>
             <CardTitle className="text-3xl font-bold text-purple-900 flex items-center justify-center">
@@ -119,6 +131,7 @@ export default function LoginPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Email Field */}
             <div className="space-y-2">
               <Label htmlFor="email" className="text-purple-900 font-bold">
                 Email Address
@@ -140,6 +153,7 @@ export default function LoginPage() {
               {errors.email && <p className="text-red-600 text-sm font-medium">{errors.email}</p>}
             </div>
 
+            {/* Password Field */}
             <div className="space-y-2">
               <Label htmlFor="password" className="text-purple-900 font-bold">
                 Password
@@ -161,12 +175,14 @@ export default function LoginPage() {
               {errors.password && <p className="text-red-600 text-sm font-medium">{errors.password}</p>}
             </div>
 
+            {/* Submit Error */}
             {errors.submit && (
               <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
                 <p className="text-red-600 text-sm font-medium">{errors.submit}</p>
               </div>
             )}
 
+            {/* Submit Button */}
             <Button
               type="submit"
               disabled={isLoading}
@@ -186,6 +202,7 @@ export default function LoginPage() {
               )}
             </Button>
 
+            {/* Register Link */}
             <div className="text-center pt-4">
               <p className="text-gray-600 font-medium">
                 Don't have an account?{" "}

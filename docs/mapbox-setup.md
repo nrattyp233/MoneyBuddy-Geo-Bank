@@ -21,7 +21,7 @@ This guide will help you set up Mapbox for the geofencing functionality in Money
 2. Add your Mapbox access token:
 
 \`\`\`env
-MAPBOX_ACCESS_TOKEN=pk.<your_mapbox_access_token>
+NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN=pk.your_mapbox_access_token_here
 \`\`\`
 
 ## Step 4: Verify Setup
@@ -41,7 +41,7 @@ MAPBOX_ACCESS_TOKEN=pk.<your_mapbox_access_token>
 
 ### Map not loading?
 - Check that your token starts with `pk.`
-- Ensure the environment variable name is exactly `MAPBOX_ACCESS_TOKEN`
+- Ensure the environment variable name is exactly `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN`
 - Restart your development server after adding the token
 
 ### Console errors?
@@ -54,9 +54,9 @@ MAPBOX_ACCESS_TOKEN=pk.<your_mapbox_access_token>
 
 ## Security Notes
 
-- The token is now served server-side only for security
-- This prevents the token from being exposed in client-side bundles
-- The token is fetched securely via API route `/api/mapbox/token`
+- The `NEXT_PUBLIC_` prefix makes this token visible to browsers
+- This is safe for Mapbox public tokens (they're designed for client-side use)
+- Never share your secret tokens or put them in client-side code
 - You can restrict token usage by URL in your Mapbox account settings
 
 ## Features Enabled

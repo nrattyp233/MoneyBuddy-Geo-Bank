@@ -1,6 +1,7 @@
 "use client"
 
 import type React from "react"
+
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -19,7 +20,6 @@ import {
   MapPin,
 } from "lucide-react"
 import { MoneyBuddyLogo } from "@/components/money-buddy-logo"
-import { useAuth } from "@/components/stack-auth-provider"
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -27,11 +27,64 @@ interface DashboardLayoutProps {
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [userName, setUserName] = useState("User")
   const [userBalance, setUserBalance] = useState(2500.0)
   const router = useRouter()
-  const { user, signOut } = useAuth()
 
   useEffect(() => {
+    // Load user data from multiple sources for maximum persistence
+    const loadUserData = () => {
+      try {
+        // Try to get from main user object first
+        const userDataStr = localStorage.getItem("moneyBuddyUser") || sessionStorage.getItem("moneyBuddyUser")
+        if (userDataStr) {
+          const userData = JSON.parse(userDataStr)
+          if (userData.fullName) {
+            setUserName(userData.fullName)
+            return
+          }
+          if (userData.firstName && userData.lastName) {
+            setUserName(`${userData.firstName} ${userData.lastName}`)
+            return
+          }
+          if (userData.firstName) {
+            setUserName(userData.firstName)
+            return
+          }
+        }
+
+        // Fallback to individual fields
+        const fullName = localStorage.getItem("userFullName")
+        if (fullName) {
+          setUserName(fullName)
+          return
+        }
+
+        const firstName = localStorage.getItem("userFirstName")
+        const lastName = localStorage.getItem("userLastName")
+        if (firstName && lastName) {
+          setUserName(`${firstName} ${lastName}`)
+          return
+        }
+
+        if (firstName) {
+          setUserName(firstName)
+          return
+        }
+
+        // Final fallback - check if user is authenticated but name is missing
+        const isAuth = localStorage.getItem("isAuthenticated")
+        if (isAuth === "true") {
+          setUserName("Money Buddy User")
+        }
+      } catch (error) {
+        console.error("Error loading user data:", error)
+        setUserName("User")
+      }
+    }
+
+    loadUserData()
+
     // Load balance from localStorage if available
     const savedBalance = localStorage.getItem("userBalance")
     if (savedBalance) {
@@ -39,16 +92,18 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     }
   }, [])
 
-  const handleLogout = async () => {
-    try {
-      await signOut()
-      // Clear any local storage
-      localStorage.clear()
-      sessionStorage.clear()
-      router.push("/auth/stack-login")
-    } catch (error) {
-      console.error("Logout error:", error)
-    }
+  const handleLogout = () => {
+    // Clear all user data
+    localStorage.removeItem("moneyBuddyUser")
+    localStorage.removeItem("userFirstName")
+    localStorage.removeItem("userLastName")
+    localStorage.removeItem("userFullName")
+    localStorage.removeItem("userEmail")
+    localStorage.removeItem("isAuthenticated")
+    localStorage.removeItem("userBalance")
+    sessionStorage.clear()
+
+    router.push("/auth/login")
   }
 
   const navigationItems = [
@@ -62,8 +117,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     { icon: MessageCircle, label: "AI Chat", href: "/chat" },
     { icon: User, label: "Profile", href: "/profile" },
   ]
-
-  const displayName = user?.displayName || user?.primaryEmail || "User"
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-600 via-blue-600 to-lime-500">
@@ -104,9 +157,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               <div className="w-16 h-16 bg-gradient-primary rounded-full flex items-center justify-center mx-auto mb-3">
                 <User className="h-8 w-8 text-white" />
               </div>
-              <h3 className="font-bold text-purple-900 text-lg truncate" title={displayName}>
-                {displayName}
-              </h3>
+              <h3 className="font-bold text-purple-900 text-lg">{userName}</h3>
               <p className="text-2xl font-bold text-lime-600">${userBalance.toFixed(2)}</p>
               <p className="text-sm text-gray-600">Available Balance</p>
             </div>

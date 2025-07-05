@@ -4,12 +4,11 @@ import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { CreditCard, CheckCircle, AlertCircle, ExternalLink, Shield, MapPin } from "lucide-react"
+import { CreditCard, CheckCircle, AlertCircle, ExternalLink, Shield } from "lucide-react"
 
 export function SquareStatus() {
   const [hasAccessToken, setHasAccessToken] = useState(false)
   const [hasApplicationId, setHasApplicationId] = useState(false)
-  const [hasLocationId, setHasLocationId] = useState(false)
   const [environment, setEnvironment] = useState<string>("")
   const [isLoading, setIsLoading] = useState(true)
 
@@ -17,17 +16,15 @@ export function SquareStatus() {
     // Check if Square credentials are configured
     const accessToken = process.env.SQUARE_ACCESS_TOKEN
     const applicationId = process.env.SQUARE_APPLICATION_ID
-    const locationId = process.env.SQUARE_LOCATION_ID
     const env = process.env.SQUARE_ENVIRONMENT || "sandbox"
 
     setHasAccessToken(!!accessToken && accessToken !== "your_square_access_token_here")
     setHasApplicationId(!!applicationId && applicationId !== "your_square_application_id_here")
-    setHasLocationId(!!locationId && locationId !== "your_square_location_id_here")
     setEnvironment(env)
     setIsLoading(false)
   }, [])
 
-  const isFullyConfigured = hasAccessToken && hasApplicationId && hasLocationId
+  const isFullyConfigured = hasAccessToken && hasApplicationId
   const isProduction = environment === "production"
 
   if (isLoading) {
@@ -72,7 +69,7 @@ export function SquareStatus() {
       <CardContent>
         <div className="space-y-4">
           {/* Configuration Status */}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <div className="flex items-center space-x-2">
               <div className={`w-3 h-3 rounded-full ${hasAccessToken ? "bg-green-500" : "bg-red-500"}`}></div>
               <span className="text-sm">Access Token</span>
@@ -80,13 +77,6 @@ export function SquareStatus() {
             <div className="flex items-center space-x-2">
               <div className={`w-3 h-3 rounded-full ${hasApplicationId ? "bg-green-500" : "bg-red-500"}`}></div>
               <span className="text-sm">Application ID</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <div className={`w-3 h-3 rounded-full ${hasLocationId ? "bg-green-500" : "bg-red-500"}`}></div>
-              <span className="text-sm flex items-center">
-                <MapPin className="h-3 w-3 mr-1" />
-                Location ID
-              </span>
             </div>
           </div>
 
@@ -104,7 +94,6 @@ export function SquareStatus() {
                 <br />✅ Credit/debit card processing active
                 <br />✅ Secure payment handling configured
                 <br />✅ Transaction fees and receipts available
-                <br />✅ Payout processing configured with location
               </p>
               {!isProduction && (
                 <div className="bg-blue-50 border border-blue-200 rounded p-3">
@@ -130,24 +119,9 @@ export function SquareStatus() {
                   <br />
                   SQUARE_APPLICATION_ID=sandbox-sq0idb-...your_id_here
                   <br />
-                  SQUARE_LOCATION_ID=L7HXV8XHMMM2M
-                  <br />
                   SQUARE_ENVIRONMENT=sandbox
                 </code>
               </div>
-
-              {!hasLocationId && (
-                <div className="bg-orange-50 border border-orange-200 rounded p-3">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <MapPin className="h-4 w-4 text-orange-600" />
-                    <span className="text-sm font-medium text-orange-800">Location ID Required</span>
-                  </div>
-                  <p className="text-sm text-orange-700">
-                    Your Square Location ID is needed for processing withdrawals and payouts. Find it in your Square
-                    Dashboard under Locations.
-                  </p>
-                </div>
-              )}
 
               <div className="flex space-x-2">
                 <Button
@@ -162,11 +136,10 @@ export function SquareStatus() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => window.open("/docs/square-location-id-setup.md", "_blank")}
+                  onClick={() => window.open("/docs/square-setup.md", "_blank")}
                   className="bg-white"
                 >
-                  <MapPin className="h-4 w-4 mr-2" />
-                  Get Location ID
+                  Setup Guide
                 </Button>
               </div>
             </div>

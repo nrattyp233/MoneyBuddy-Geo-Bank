@@ -1,7 +1,23 @@
 {
-  "buildCommand": "pnpm install --no-frozen-lockfile && pnpm build",
-  "installCommand": "pnpm install --no-frozen-lockfile",
-  "framework": "nextjs",
+  "version": 2,
+  "name": "money-buddy",
+  "alias": ["money-buddy"],
+  "regions": ["iad1"],
+  "build": {
+    "env": {
+      "NODE_ENV": "production"
+    }
+  },
+  "env": {
+    "SQUARE_ACCESS_TOKEN": "@square-access-token",
+    "SQUARE_APPLICATION_ID": "@square-application-id",
+    "SQUARE_ENVIRONMENT": "production",
+    "NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN": "@mapbox-access-token",
+    "DATABASE_URL": "@database-url",
+    "GOOGLE_GENERATIVE_AI_API_KEY": "@google-ai-api-key",
+    "NEXTAUTH_SECRET": "@nextauth-secret",
+    "NEXTAUTH_URL": "@nextauth-url"
+  },
   "functions": {
     "app/api/**/*.ts": {
       "maxDuration": 30
@@ -12,32 +28,39 @@
       "source": "/(.*)",
       "headers": [
         {
-          "key": "X-Content-Type-Options",
-          "value": "nosniff"
-        },
-        {
           "key": "X-Frame-Options",
           "value": "DENY"
         },
         {
-          "key": "X-XSS-Protection",
-          "value": "1; mode=block"
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
         },
         {
           "key": "Referrer-Policy",
           "value": "strict-origin-when-cross-origin"
         },
         {
-          "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://api.mapbox.com https://js.squareup.com; style-src 'self' 'unsafe-inline' https://api.mapbox.com; img-src 'self' data: https:; font-src 'self' https:; connect-src 'self' https: wss:; frame-src https://js.squareup.com;"
+          "key": "X-XSS-Protection",
+          "value": "1; mode=block"
+        },
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=31536000; includeSubDomains"
         }
       ]
     }
   ],
-  "rewrites": [
+  "redirects": [
     {
-      "source": "/api/(.*)",
-      "destination": "/api/$1"
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.money-buddy.com"
+        }
+      ],
+      "destination": "https://money-buddy.com",
+      "permanent": true
     }
   ]
 }

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
-import { CreditCard, Banknote, Smartphone, Shield, CheckCircle, AlertCircle } from "lucide-react"
+import { CreditCard, Banknote, Smartphone, Shield, CheckCircle } from "lucide-react"
 import { DashboardLayout } from "@/components/dashboard-layout"
 
 export default function DepositPage() {
@@ -22,8 +22,6 @@ export default function DepositPage() {
   })
   const [isLoading, setIsLoading] = useState(false)
   const [depositSuccess, setDepositSuccess] = useState(false)
-  const [error, setError] = useState("")
-  const [newBalance, setNewBalance] = useState<number | null>(null)
 
   const paymentMethods = [
     { id: "card", name: "Credit/Debit Card", icon: CreditCard, description: "Instant deposit" },
@@ -34,57 +32,13 @@ export default function DepositPage() {
   const handleDeposit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
-    setError("")
 
-    try {
-      const response = await fetch("/api/square/deposit", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          amount: Number.parseFloat(depositData.amount),
-          userEmail: "user@example.com", // In real app, get from auth context
-          paymentMethodId: depositData.paymentMethod,
-          paymentToken: `token_${Date.now()}`, // In real app, get from Square Web SDK
-          cardDetails:
-            depositData.paymentMethod === "card"
-              ? {
-                  cardNumber: depositData.cardNumber,
-                  expiryDate: depositData.expiryDate,
-                  cvv: depositData.cvv,
-                  nameOnCard: depositData.nameOnCard,
-                }
-              : null,
-        }),
-      })
-
-      const result = await response.json()
-
-      if (result.success) {
-        setDepositSuccess(true)
-        setNewBalance(result.newBalance)
-        setDepositData({
-          amount: "",
-          paymentMethod: "card",
-          cardNumber: "",
-          expiryDate: "",
-          cvv: "",
-          nameOnCard: "",
-        })
-        setTimeout(() => {
-          setDepositSuccess(false)
-          setNewBalance(null)
-        }, 5000)
-      } else {
-        setError(result.error || "Deposit failed")
-      }
-    } catch (err) {
-      setError("Network error. Please try again.")
-      console.error("Deposit error:", err)
-    } finally {
+    // Simulate Square payment processing
+    setTimeout(() => {
       setIsLoading(false)
-    }
+      setDepositSuccess(true)
+      setTimeout(() => setDepositSuccess(false), 3000)
+    }, 2000)
   }
 
   return (
@@ -103,25 +57,7 @@ export default function DepositPage() {
                 <CheckCircle className="h-8 w-8 text-green-600" />
                 <div>
                   <h3 className="font-semibold text-green-800">Deposit Successful! 🎉</h3>
-                  <p className="text-green-600">${depositData.amount} has been added to your Money Buddy wallet</p>
-                  {newBalance && (
-                    <p className="text-green-700 font-medium">New Balance: ${newBalance.toLocaleString()}</p>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Error Message */}
-        {error && (
-          <Card className="border-2 border-red-200 bg-gradient-to-r from-red-50 to-pink-50">
-            <CardContent className="pt-6">
-              <div className="flex items-center space-x-3">
-                <AlertCircle className="h-8 w-8 text-red-600" />
-                <div>
-                  <h3 className="font-semibold text-red-800">Deposit Failed</h3>
-                  <p className="text-red-600">{error}</p>
+                  <p className="text-green-600">Your funds have been added to your Money Buddy wallet</p>
                 </div>
               </div>
             </CardContent>
@@ -180,7 +116,6 @@ export default function DepositPage() {
                   type="number"
                   step="0.01"
                   min="1"
-                  max="10000"
                   placeholder="Enter amount to deposit"
                   value={depositData.amount}
                   onChange={(e) => setDepositData({ ...depositData, amount: e.target.value })}
@@ -200,18 +135,8 @@ export default function DepositPage() {
                       id="cardNumber"
                       placeholder="1234 5678 9012 3456"
                       value={depositData.cardNumber}
-                      onChange={(e) => {
-                        // Format card number with spaces
-                        const value = e.target.value
-                          .replace(/\s/g, "")
-                          .replace(/(.{4})/g, "$1 ")
-                          .trim()
-                        if (value.length <= 19) {
-                          setDepositData({ ...depositData, cardNumber: value })
-                        }
-                      }}
+                      onChange={(e) => setDepositData({ ...depositData, cardNumber: e.target.value })}
                       className="border-purple-200 focus:border-purple-400"
-                      maxLength={19}
                       required
                     />
                   </div>
@@ -223,16 +148,8 @@ export default function DepositPage() {
                         id="expiryDate"
                         placeholder="MM/YY"
                         value={depositData.expiryDate}
-                        onChange={(e) => {
-                          // Format expiry date
-                          let value = e.target.value.replace(/\D/g, "")
-                          if (value.length >= 2) {
-                            value = value.substring(0, 2) + "/" + value.substring(2, 4)
-                          }
-                          setDepositData({ ...depositData, expiryDate: value })
-                        }}
+                        onChange={(e) => setDepositData({ ...depositData, expiryDate: e.target.value })}
                         className="border-purple-200 focus:border-purple-400"
-                        maxLength={5}
                         required
                       />
                     </div>
@@ -241,16 +158,9 @@ export default function DepositPage() {
                       <Input
                         id="cvv"
                         placeholder="123"
-                        type="password"
                         value={depositData.cvv}
-                        onChange={(e) => {
-                          const value = e.target.value.replace(/\D/g, "")
-                          if (value.length <= 4) {
-                            setDepositData({ ...depositData, cvv: value })
-                          }
-                        }}
+                        onChange={(e) => setDepositData({ ...depositData, cvv: e.target.value })}
                         className="border-purple-200 focus:border-purple-400"
-                        maxLength={4}
                         required
                       />
                     </div>
@@ -266,29 +176,6 @@ export default function DepositPage() {
                       className="border-purple-200 focus:border-purple-400"
                       required
                     />
-                  </div>
-                </div>
-              )}
-
-              {depositData.paymentMethod === "bank" && (
-                <div className="space-y-4 p-4 border-2 border-purple-200 rounded-lg bg-white/50">
-                  <h4 className="font-medium text-purple-700">Bank Transfer Information</h4>
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <p className="text-sm text-blue-700">
-                      Bank transfers take 1-2 business days to process. You'll receive a confirmation email once the
-                      deposit is complete.
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {depositData.paymentMethod === "digital" && (
-                <div className="space-y-4 p-4 border-2 border-purple-200 rounded-lg bg-white/50">
-                  <h4 className="font-medium text-purple-700">Digital Wallet</h4>
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <p className="text-sm text-blue-700">
-                      You'll be redirected to complete your payment with Apple Pay or Google Pay.
-                    </p>
                   </div>
                 </div>
               )}
@@ -312,16 +199,9 @@ export default function DepositPage() {
               <Button
                 type="submit"
                 className="w-full bg-gradient-primary hover:opacity-90 text-white border-0 py-3 text-lg font-semibold"
-                disabled={isLoading || !depositData.amount}
+                disabled={isLoading}
               >
-                {isLoading ? (
-                  <div className="flex items-center space-x-2">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                    <span>Processing Deposit...</span>
-                  </div>
-                ) : (
-                  `Deposit $${depositData.amount || "0.00"} 🐵`
-                )}
+                {isLoading ? "Processing Deposit..." : `Deposit $${depositData.amount || "0.00"} 🐵`}
               </Button>
             </form>
           </CardContent>

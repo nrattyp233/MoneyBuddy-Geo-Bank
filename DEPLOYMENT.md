@@ -1,163 +1,331 @@
-# Money Buddy Banking App - Production Deployment Guide
+# Money Buddy - Production Deployment Guide
 
-## 🚀 Quick Deploy to Vercel
+This guide covers deploying Money Buddy to production with Supabase database, Mapbox geofencing, Square payments, and all integrated services.
 
-### Prerequisites
-- Vercel account connected to your GitHub repository
-- All environment variables configured
-- Database schema deployed to Supabase
+## 🚀 Quick Deployment Checklist
 
-### 1. Environment Variables Setup
+- [ ] Supabase project created and configured
+- [ ] Mapbox access token obtained
+- [ ] Square payment credentials configured
+- [ ] Google AI API key set up
+- [ ] Environment variables configured
+- [ ] Domain configured (if custom)
+- [ ] SSL certificates enabled
+- [ ] Database migrations run
+- [ ] Production testing completed
 
-Add these environment variables in your Vercel dashboard:
+## 📋 Prerequisites
 
-#### **Supabase (Required)**
+### Required Accounts & Services
+
+1. **Vercel Account** - For hosting and deployment
+2. **Supabase Account** - For production database
+3. **Mapbox Account** - For geofencing maps
+4. **Square Developer Account** - For payment processing
+5. **Google AI Account** - For AI chat features
+6. **Domain Name** (optional) - For custom domain
+
+### Required Tools
+
+- Node.js 18+ and npm
+- Git for version control
+- Access to your project repository
+
+## 🗄️ Database Setup (Supabase)
+
+### 1. Create Supabase Project
+
+\`\`\`bash
+# Visit https://app.supabase.com
+# Create new project: money-buddy-production
+# Choose region closest to your users
+# Generate strong database password
 \`\`\`
-SUPABASE_URL=https://qzjbfwlozkokftkgixte.supabase.co
+
+### 2. Run Database Scripts
+
+\`\`\`sql
+-- In Supabase SQL Editor, run:
+-- 1. scripts/supabase-setup.sql (creates tables and functions)
+-- 2. scripts/supabase-seed.sql (adds demo data - optional)
+\`\`\`
+
+### 3. Get Supabase Credentials
+
+\`\`\`env
+SUPABASE_URL=https://your-project-ref.supabase.co
 SUPABASE_ANON_KEY=your-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-NEXT_PUBLIC_SUPABASE_URL=https://qzjbfwlozkokftkgixte.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+DATABASE_URL=postgresql://postgres:[PASSWORD]@db.your-project-ref.supabase.co:5432/postgres
 \`\`\`
 
-#### **Square Payments (Required)**
+## 🗺️ Mapbox Configuration
+
+### 1. Create Mapbox Account
+- Visit [mapbox.com](https://mapbox.com)
+- Sign up for free account
+- Go to Account → Access Tokens
+
+### 2. Create Access Token
+\`\`\`bash
+# Create token with these scopes:
+# - styles:read
+# - fonts:read
+# - datasets:read
+# - geocoding:read
 \`\`\`
-SQUARE_APPLICATION_ID=sq0idp-fkCfPR6LBlVTJGJfcbzZkQ
-SQUARE_ACCESS_TOKEN=your-production-token
+
+### 3. Configure Token
+\`\`\`env
+NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN=pk.your_mapbox_access_token_here
+\`\`\`
+
+## 💳 Square Payment Setup
+
+### 1. Square Developer Account
+- Visit [developer.squareup.com](https://developer.squareup.com)
+- Create developer account
+- Create new application
+
+### 2. Get Credentials
+\`\`\`env
+SQUARE_APPLICATION_ID=your_square_application_id
+SQUARE_ACCESS_TOKEN=your_square_access_token
+SQUARE_ENVIRONMENT=production  # or 'sandbox' for testing
+SQUARE_WEBHOOK_SIGNATURE_KEY=your_webhook_signature_key
+\`\`\`
+
+### 3. Configure Webhooks
+\`\`\`bash
+# Webhook URL: https://your-domain.com/api/webhooks/square
+# Events: payment.created, payment.updated
+\`\`\`
+
+## 🤖 Google AI Setup
+
+### 1. Get API Key
+- Visit [ai.google.dev](https://ai.google.dev)
+- Create API key for Gemini
+
+### 2. Configure
+\`\`\`env
+GOOGLE_GENERATIVE_AI_API_KEY=your_google_ai_api_key
+\`\`\`
+
+## 🌐 Vercel Deployment
+
+### 1. Connect Repository
+
+\`\`\`bash
+# Option A: Vercel CLI
+npm i -g vercel
+vercel --prod
+
+# Option B: Vercel Dashboard
+# Visit vercel.com → Import Project → Connect Git Repository
+\`\`\`
+
+### 2. Configure Environment Variables
+
+In Vercel Dashboard → Settings → Environment Variables:
+
+\`\`\`env
+# Database
+SUPABASE_URL=https://your-project-ref.supabase.co
+SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+DATABASE_URL=postgresql://postgres:[PASSWORD]@db.your-project-ref.supabase.co:5432/postgres
+
+# Mapbox
+NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN=pk.your_mapbox_access_token_here
+
+# Square Payments
+SQUARE_APPLICATION_ID=your_square_app_id
+SQUARE_ACCESS_TOKEN=your_square_access_token
 SQUARE_ENVIRONMENT=production
-SQUARE_WEBHOOK_SIGNATURE_KEY=your-webhook-key
-SQUARE_LOCATION_ID=your-location-id
-\`\`\`
+SQUARE_WEBHOOK_SIGNATURE_KEY=your_webhook_key
 
-#### **Mapbox (Required)**
-\`\`\`
-MAPBOX_ACCESS_TOKEN=your-mapbox-token
-\`\`\`
+# Google AI
+GOOGLE_GENERATIVE_AI_API_KEY=your_google_ai_key
 
-#### **Google AI (Required)**
-\`\`\`
-GOOGLE_GENERATIVE_AI_API_KEY=your-google-ai-key
-\`\`\`
-
-#### **NextAuth (Required)**
-\`\`\`
+# App Configuration
 NEXTAUTH_URL=https://your-domain.vercel.app
-NEXTAUTH_SECRET=your-nextauth-secret
+NEXTAUTH_SECRET=your-nextauth-secret-key
+NODE_ENV=production
+
+# Optional: Custom configurations
+CUSTOM_KEY=your_custom_value
 \`\`\`
 
-### 2. Deploy Commands
+### 3. Deploy
 
-#### **Option A: Automatic Deploy (Recommended)**
 \`\`\`bash
+# Automatic deployment on git push
 git add .
-git commit -m "Deploy Money Buddy with Supabase fix"
+git commit -m "Deploy to production"
 git push origin main
-\`\`\`
 
-#### **Option B: Manual Deploy**
-\`\`\`bash
+# Manual deployment
 vercel --prod
 \`\`\`
 
-### 3. Post-Deploy Verification
+## 🔒 Security Configuration
 
-1. **Check Environment Variables**
-   - Visit your Vercel dashboard
-   - Verify all environment variables are set
-   - Ensure no placeholder values remain
+### 1. Environment Security
+\`\`\`bash
+# Generate secure secrets
+openssl rand -base64 32  # For NEXTAUTH_SECRET
+\`\`\`
 
-2. **Test Core Features**
-   - `/auth/login` - Authentication works
-   - `/transfer/geofence` - Maps load without errors
-   - `/deposit` - Square payments process
-   - `/dashboard` - User data displays correctly
+### 2. CORS Configuration
+\`\`\`javascript
+// In your API routes, ensure CORS is properly configured
+const allowedOrigins = [
+  'https://your-domain.com',
+  'https://your-domain.vercel.app'
+]
+\`\`\`
 
-3. **Monitor Logs**
-   - Check Vercel function logs for errors
-   - Verify Supabase connection is successful
-   - Confirm Square webhook processing
+### 3. Rate Limiting
+\`\`\`javascript
+// Implement rate limiting for API endpoints
+// Consider using Vercel's Edge Config or Upstash Redis
+\`\`\`
 
-### 4. Database Setup
+## 🌍 Custom Domain (Optional)
 
-Run these SQL scripts in your Supabase SQL editor:
+### 1. Add Domain in Vercel
+- Vercel Dashboard → Domains
+- Add your custom domain
+- Configure DNS records
 
-1. **Create Tables**: Execute `scripts/create-database.sql`
-2. **Seed Data**: Execute `scripts/seed-data.sql`
-3. **Setup Functions**: Execute `scripts/supabase-setup.sql`
+### 2. Update Environment Variables
+\`\`\`env
+NEXTAUTH_URL=https://your-custom-domain.com
+\`\`\`
 
-### 5. Webhook Configuration
+### 3. SSL Certificate
+- Vercel automatically provisions SSL certificates
+- Verify HTTPS is working
 
-#### **Square Webhooks**
-- URL: `https://your-domain.vercel.app/api/webhooks/square`
-- Events: `payment.updated`, `refund.updated`
+## 📊 Monitoring & Analytics
 
-#### **Supabase Webhooks** (Optional)
-- URL: `https://your-domain.vercel.app/api/webhooks/supabase`
-- Events: Database changes
+### 1. Vercel Analytics
+\`\`\`bash
+# Enable in Vercel Dashboard → Analytics
+# Or add to your app:
+npm install @vercel/analytics
+\`\`\`
 
-## 🔧 Troubleshooting
+### 2. Error Monitoring
+\`\`\`bash
+# Consider adding Sentry or similar
+npm install @sentry/nextjs
+\`\`\`
+
+### 3. Database Monitoring
+- Use Supabase Dashboard → Reports
+- Set up alerts for high usage
+- Monitor query performance
+
+## 🧪 Production Testing
+
+### 1. Functionality Tests
+\`\`\`bash
+# Test all major features:
+# ✅ User registration/login
+# ✅ Deposit/withdrawal flows
+# ✅ Geofenced transfers
+# ✅ Map functionality
+# ✅ AI chat features
+# ✅ Payment processing
+\`\`\`
+
+### 2. Performance Tests
+\`\`\`bash
+# Use tools like:
+# - Lighthouse for performance auditing
+# - GTmetrix for speed testing
+# - WebPageTest for detailed analysis
+\`\`\`
+
+### 3. Security Tests
+\`\`\`bash
+# Verify:
+# ✅ HTTPS everywhere
+# ✅ Environment variables secure
+# ✅ API endpoints protected
+# ✅ Database RLS working
+\`\`\`
+
+## 🚨 Troubleshooting
 
 ### Common Issues
 
-1. **"supabaseUrl is required" Error**
-   - Ensure both `SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_URL` are set
-   - Check that values are not placeholder text
+1. **Database Connection Errors**
+   \`\`\`bash
+   # Check DATABASE_URL format
+   # Verify Supabase project is active
+   # Ensure password is URL-encoded
+   \`\`\`
 
-2. **Mapbox Token Errors**
-   - Verify `MAPBOX_ACCESS_TOKEN` is set (server-side only)
-   - Check token has correct scopes in Mapbox dashboard
+2. **Mapbox Not Loading**
+   \`\`\`bash
+   # Verify NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN
+   # Check token permissions
+   # Ensure token starts with 'pk.'
+   \`\`\`
 
 3. **Square Payment Failures**
-   - Confirm `SQUARE_LOCATION_ID` is set
-   - Verify production vs sandbox environment settings
+   \`\`\`bash
+   # Verify SQUARE_ENVIRONMENT setting
+   # Check application ID and access token
+   # Ensure webhook URL is accessible
+   \`\`\`
 
 4. **Build Failures**
-   - Check for TypeScript errors
-   - Ensure all imports are correct
-   - Verify environment variables don't contain sensitive data in client code
+   \`\`\`bash
+   # Check for TypeScript errors
+   # Verify all dependencies are installed
+   # Ensure environment variables are set
+   \`\`\`
 
-### Performance Optimization
+### Getting Help
 
-- **Function Timeout**: Set to 30 seconds for payment processing
-- **Regions**: Deployed to `iad1` for optimal US performance
-- **Caching**: Static assets cached with appropriate headers
+- **Vercel Support**: [vercel.com/support](https://vercel.com/support)
+- **Supabase Docs**: [supabase.com/docs](https://supabase.com/docs)
+- **Mapbox Support**: [docs.mapbox.com](https://docs.mapbox.com)
+- **Square Developer**: [developer.squareup.com/support](https://developer.squareup.com/support)
 
-## 📊 Monitoring
+## 📈 Post-Deployment
 
-### Key Metrics to Monitor
-- API response times
-- Database query performance
-- Payment success rates
-- User authentication flows
-- Geofencing accuracy
+### 1. Monitor Performance
+- Set up uptime monitoring
+- Configure error alerts
+- Monitor database usage
 
-### Logging
-- All API endpoints log requests and responses
-- Database operations are logged with performance metrics
-- Payment processing includes detailed transaction logs
+### 2. User Feedback
+- Implement feedback collection
+- Monitor user behavior
+- Track feature usage
 
-## 🔒 Security
+### 3. Scaling Considerations
+- Monitor Vercel function usage
+- Consider Supabase plan upgrades
+- Optimize database queries as needed
 
-### Headers Applied
-- `X-Frame-Options: DENY`
-- `X-Content-Type-Options: nosniff`
-- `Strict-Transport-Security`
-- `X-XSS-Protection`
+## 🎉 Success!
 
-### Environment Variable Security
-- Server-only variables never exposed to client
-- Public variables prefixed with `NEXT_PUBLIC_`
-- Service role keys restricted to server-side operations
+Your Money Buddy app is now live in production! 
 
-## 🎯 Success Criteria
+**Next Steps:**
+1. Share your app with users
+2. Monitor performance and usage
+3. Iterate based on feedback
+4. Scale infrastructure as needed
 
-Deployment is successful when:
-- ✅ All pages load without errors
-- ✅ User authentication works
-- ✅ Payments process successfully
-- ✅ Maps display correctly
-- ✅ Database operations complete
-- ✅ Webhooks receive and process events
-- ✅ No sensitive data exposed in client bundles
+**Production URL:** `https://your-domain.vercel.app`
 
-Your Money Buddy banking app is now ready for production! 🐵💰
+---
+
+*Need help? Check the troubleshooting section or reach out to the development team.*

@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -21,9 +21,7 @@ export default function WithdrawPage() {
   })
   const [isLoading, setIsLoading] = useState(false)
   const [withdrawSuccess, setWithdrawSuccess] = useState(false)
-  const [error, setError] = useState("")
-  const [availableBalance, setAvailableBalance] = useState(12450.75)
-  const [newBalance, setNewBalance] = useState<number | null>(null)
+  const [availableBalance] = useState(12450.75)
 
   const withdrawMethods = [
     { id: "bank", name: "Bank Transfer", icon: Banknote, description: "1-2 business days", fee: 0 },
@@ -31,84 +29,27 @@ export default function WithdrawPage() {
     { id: "card", name: "Debit Card", icon: CreditCard, description: "Instant to card", fee: 1.0 },
   ]
 
-  const selectedMethod = withdrawMethods.find((method) => method.id === withdrawData.method)
+  const selectedMethod = withdrawMethods.find((method) => method.method === withdrawData.method)
   const withdrawAmount = Number.parseFloat(withdrawData.amount) || 0
   const withdrawFee = selectedMethod?.fee || 0
   const totalDeducted = withdrawAmount + withdrawFee
 
-  // Fetch user balance on component mount
-  useEffect(() => {
-    const fetchBalance = async () => {
-      try {
-        // In a real app, you'd fetch this from your API
-        // const response = await fetch('/api/user/balance')
-        // const data = await response.json()
-        // setAvailableBalance(data.balance)
-      } catch (err) {
-        console.error("Error fetching balance:", err)
-      }
-    }
-    fetchBalance()
-  }, [])
-
   const handleWithdraw = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsLoading(true)
-    setError("")
 
     if (totalDeducted > availableBalance) {
-      setError(`Insufficient funds. You need $${(totalDeducted - availableBalance).toFixed(2)} more.`)
-      setIsLoading(false)
+      alert("Insufficient funds for this withdrawal")
       return
     }
 
-    try {
-      const response = await fetch("/api/square/withdraw", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          amount: withdrawAmount,
-          method: withdrawData.method,
-          userEmail: "user@example.com", // In real app, get from auth context
-          bankDetails:
-            withdrawData.method === "bank"
-              ? {
-                  accountHolder: withdrawData.accountHolder,
-                  routingNumber: withdrawData.routingNumber,
-                  accountNumber: withdrawData.bankAccount,
-                }
-              : null,
-        }),
-      })
+    setIsLoading(true)
 
-      const result = await response.json()
-
-      if (result.success) {
-        setWithdrawSuccess(true)
-        setNewBalance(result.newBalance)
-        setAvailableBalance(result.newBalance)
-        setWithdrawData({
-          amount: "",
-          method: "bank",
-          bankAccount: "",
-          routingNumber: "",
-          accountHolder: "",
-        })
-        setTimeout(() => {
-          setWithdrawSuccess(false)
-          setNewBalance(null)
-        }, 5000)
-      } else {
-        setError(result.error || "Withdrawal failed")
-      }
-    } catch (err) {
-      setError("Network error. Please try again.")
-      console.error("Withdrawal error:", err)
-    } finally {
+    // Simulate Square withdrawal processing
+    setTimeout(() => {
       setIsLoading(false)
-    }
+      setWithdrawSuccess(true)
+      setTimeout(() => setWithdrawSuccess(false), 3000)
+    }, 2000)
   }
 
   return (
@@ -127,25 +68,7 @@ export default function WithdrawPage() {
                 <CheckCircle className="h-8 w-8 text-green-600" />
                 <div>
                   <h3 className="font-semibold text-green-800">Withdrawal Initiated! 🎉</h3>
-                  <p className="text-green-600">${withdrawAmount.toFixed(2)} is being processed by Square</p>
-                  {newBalance !== null && (
-                    <p className="text-green-700 font-medium">New Balance: ${newBalance.toLocaleString()}</p>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Error Message */}
-        {error && (
-          <Card className="border-2 border-red-200 bg-gradient-to-r from-red-50 to-pink-50">
-            <CardContent className="pt-6">
-              <div className="flex items-center space-x-3">
-                <AlertCircle className="h-8 w-8 text-red-600" />
-                <div>
-                  <h3 className="font-semibold text-red-800">Withdrawal Failed</h3>
-                  <p className="text-red-600">{error}</p>
+                  <p className="text-green-600">Your funds are being processed by Square</p>
                 </div>
               </div>
             </CardContent>
@@ -232,7 +155,6 @@ export default function WithdrawPage() {
                   className="border-purple-200 focus:border-purple-400 text-lg font-semibold"
                   required
                 />
-                <p className="text-sm text-gray-500">Maximum: ${availableBalance.toLocaleString()}</p>
               </div>
 
               {withdrawData.method === "bank" && (
@@ -258,14 +180,8 @@ export default function WithdrawPage() {
                         id="routingNumber"
                         placeholder="123456789"
                         value={withdrawData.routingNumber}
-                        onChange={(e) => {
-                          const value = e.target.value.replace(/\D/g, "")
-                          if (value.length <= 9) {
-                            setWithdrawData({ ...withdrawData, routingNumber: value })
-                          }
-                        }}
+                        onChange={(e) => setWithdrawData({ ...withdrawData, routingNumber: e.target.value })}
                         className="border-purple-200 focus:border-purple-400"
-                        maxLength={9}
                         required
                       />
                     </div>
@@ -275,39 +191,11 @@ export default function WithdrawPage() {
                         id="bankAccount"
                         placeholder="1234567890"
                         value={withdrawData.bankAccount}
-                        onChange={(e) => {
-                          const value = e.target.value.replace(/\D/g, "")
-                          if (value.length <= 17) {
-                            setWithdrawData({ ...withdrawData, bankAccount: value })
-                          }
-                        }}
+                        onChange={(e) => setWithdrawData({ ...withdrawData, bankAccount: e.target.value })}
                         className="border-purple-200 focus:border-purple-400"
-                        maxLength={17}
                         required
                       />
                     </div>
-                  </div>
-                </div>
-              )}
-
-              {withdrawData.method === "instant" && (
-                <div className="space-y-4 p-4 border-2 border-purple-200 rounded-lg bg-white/50">
-                  <h4 className="font-medium text-purple-700">Instant Transfer</h4>
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                    <p className="text-sm text-yellow-700">
-                      Instant transfers arrive within minutes but include a $1.50 processing fee.
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {withdrawData.method === "card" && (
-                <div className="space-y-4 p-4 border-2 border-purple-200 rounded-lg bg-white/50">
-                  <h4 className="font-medium text-purple-700">Debit Card Transfer</h4>
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <p className="text-sm text-blue-700">
-                      Funds will be sent directly to your debit card instantly with a $1.00 processing fee.
-                    </p>
                   </div>
                 </div>
               )}
@@ -355,16 +243,9 @@ export default function WithdrawPage() {
               <Button
                 type="submit"
                 className="w-full bg-gradient-primary hover:opacity-90 text-white border-0 py-3 text-lg font-semibold"
-                disabled={isLoading || totalDeducted > availableBalance || !withdrawData.amount}
+                disabled={isLoading || totalDeducted > availableBalance}
               >
-                {isLoading ? (
-                  <div className="flex items-center space-x-2">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                    <span>Processing Withdrawal...</span>
-                  </div>
-                ) : (
-                  `Withdraw $${withdrawAmount.toFixed(2)} 🐵`
-                )}
+                {isLoading ? "Processing Withdrawal..." : `Withdraw $${withdrawAmount.toFixed(2)} 🐵`}
               </Button>
             </form>
           </CardContent>
