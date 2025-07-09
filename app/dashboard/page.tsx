@@ -6,83 +6,61 @@ import { Button } from "@/components/ui/button"
 import { DollarSign, TrendingUp, PiggyBank, Send, MapPin, MessageCircle, Sparkles, Zap } from "lucide-react"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import Link from "next/link"
+import { supabase, getUserById, getUserTransactions, type User, type Transaction } from "@/lib/supabase"
+import { useRouter } from "next/navigation"
 
-interface UserData {
-  firstName: string
-  lastName: string
-  fullName: string
-  email: string
-  phone?: string
-  balance: number
-  savingsBalance: number
-  registeredAt: string
-  lastLogin?: string
+interface UserData extends User {
   isLoggedIn: boolean
 }
 
 export default function DashboardPage() {
   const [userData, setUserData] = useState<UserData | null>(null)
+  const [transactions, setTransactions] = useState<Transaction[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const router = useRouter()
 
   useEffect(() => {
-    // Load user data from storage
-    const loadUserData = () => {
+    // Load user data from Supabase
+    const loadUserData = async () => {
       try {
-        // Try localStorage first
-        let storedUser = localStorage.getItem("moneyBuddyUser")
-
-        if (!storedUser) {
-          // Try sessionStorage as backup
-          storedUser = sessionStorage.getItem("moneyBuddyUser")
+        // Check if user is authenticated
+        const { data: { user } } = await supabase.auth.getUser()
+        
+        if (!user) {
+          console.log("No authenticated user found, redirecting to login")
+          router.push("/auth/login")
+          return
         }
 
-        if (storedUser) {
-          const parsedUser = JSON.parse(storedUser)
-          setUserData(parsedUser)
-          console.log("User data loaded:", parsedUser)
-        } else {
-          // Fallback: try individual fields
-          const firstName = localStorage.getItem("userFirstName") || "Demo"
-          const lastName = localStorage.getItem("userLastName") || "User"
-          const email = localStorage.getItem("userEmail") || "demo@moneybuddy.com"
-
-          const fallbackUser: UserData = {
-            firstName,
-            lastName,
-            fullName: `${firstName} ${lastName}`,
-            email,
-            balance: 1250.75,
-            savingsBalance: 5000.0,
-            registeredAt: new Date().toISOString(),
-            isLoggedIn: true,
-          }
-
-          setUserData(fallbackUser)
-          // Save the fallback data
-          localStorage.setItem("moneyBuddyUser", JSON.stringify(fallbackUser))
-          console.log("Fallback user data created:", fallbackUser)
+        // Get user data from database
+        const dbUser = await getUserById(user.id)
+        
+        if (!dbUser) {
+          console.error("User not found in database")
+          router.push("/auth/login")
+          return
         }
+
+        // Get user transactions
+        const userTransactions = await getUserTransactions(user.id, 3)
+
+        setUserData({
+          ...dbUser,
+          isLoggedIn: true,
+        })
+        setTransactions(userTransactions)
+        
+        console.log("User data loaded:", dbUser)
       } catch (error) {
         console.error("Error loading user data:", error)
-        // Ultimate fallback
-        const defaultUser: UserData = {
-          firstName: "Money",
-          lastName: "Buddy",
-          fullName: "Money Buddy",
-          email: "user@moneybuddy.com",
-          balance: 1250.75,
-          savingsBalance: 5000.0,
-          registeredAt: new Date().toISOString(),
-          isLoggedIn: true,
-        }
-        setUserData(defaultUser)
+        router.push("/auth/login")
       } finally {
         setIsLoading(false)
       }
     }
 
     loadUserData()
-  }, [])
+  }, [router])
 
   if (isLoading) {
     return (
@@ -96,6 +74,27 @@ export default function DashboardPage() {
       </DashboardLayout>
     )
   }
+
+  if (!userData) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center min-h-96">
+          <div className="text-center">
+            <p className="text-white font-medium text-lg drop-shadow-lg">Unable to load user data. Please try logging in again.</p>
+            <Button 
+              onClick={() => router.push("/auth/login")}
+              className="mt-4 bg-white/20 hover:bg-white/30 text-white"
+            >
+              Go to Login
+            </Button>
+          </div>
+        </div>
+      </DashboardLayout>
+    )
+  }
+
+  // Extract first name from full name
+  const firstName = userData.name.split(' ')[0] || "Friend"
 
   return (
     <DashboardLayout>
@@ -114,7 +113,7 @@ export default function DashboardPage() {
             </div>
             <div>
               <h1 className="text-5xl font-bold text-white drop-shadow-2xl">
-                Welcome back, {userData?.firstName || "Friend"}!<span className="text-lime-300 ml-2">🐵</span>
+                Welcome back, {firstName}!<span className="text-lime-300 ml-2">🐵</span>
               </h1>
               <p className="text-white/95 text-xl font-medium drop-shadow-lg">
                 Your Money Buddy is ready to help you manage your finances
@@ -134,11 +133,11 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="text-4xl font-bold text-purple-900 mb-2">
-                ${userData?.balance?.toLocaleString("en-US", { minimumFractionDigits: 2 }) || "1,250.75"}
+                ${userData.balance.toLocaleString("en-US", { minimumFractionDigits: 2 })}
               </div>
               <p className="text-gray-700 font-medium flex items-center">
                 <TrendingUp className="h-4 w-4 mr-1 text-lime-500" />
-                +2.5% from last month
+                Ready for transactions
               </p>
             </CardContent>
           </Card>
@@ -152,11 +151,11 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="text-4xl font-bold text-purple-900 mb-2">
-                ${userData?.savingsBalance?.toLocaleString("en-US", { minimumFractionDigits: 2 }) || "5,000.00"}
+                ${userData.savings_balance.toLocaleString("en-US", { minimumFractionDigits: 2 })}
               </div>
               <p className="text-gray-700 font-medium flex items-center">
                 <TrendingUp className="h-4 w-4 mr-1 text-lime-500" />
-                +5.2% APY interest
+                Earning interest
               </p>
             </CardContent>
           </Card>
@@ -224,53 +223,36 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 bg-gradient-to-r from-lime-50 to-green-50 border-2 border-lime-200 rounded-lg">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-lime-500 rounded-full flex items-center justify-center">
-                    <Send className="h-5 w-5 text-white" />
+              {transactions.length > 0 ? (
+                transactions.map((transaction) => (
+                  <div key={transaction.id} className="flex items-center justify-between p-4 bg-gradient-to-r from-lime-50 to-green-50 border-2 border-lime-200 rounded-lg">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 bg-lime-500 rounded-full flex items-center justify-center">
+                        <Send className="h-5 w-5 text-white" />
+                      </div>
+                      <div>
+                        <p className="font-bold text-purple-900">
+                          {transaction.type === 'transfer' ? `Transfer to ${transaction.recipient_email}` : 
+                           transaction.type === 'deposit' ? 'Deposit' : 
+                           transaction.type === 'withdrawal' ? 'Withdrawal' : transaction.type}
+                        </p>
+                        <p className="text-sm text-gray-600">{transaction.description || 'No description'}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-purple-900">
+                        {transaction.type === 'deposit' ? '+' : '-'}${transaction.amount.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                      </p>
+                      <p className="text-sm text-gray-600">{new Date(transaction.created_at).toLocaleDateString()}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-bold text-purple-900">Sent to Sarah Johnson</p>
-                    <p className="text-sm text-gray-600">Geofenced transfer • Central Park</p>
-                  </div>
+                ))
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-gray-600 font-medium">No recent transactions found.</p>
+                  <p className="text-sm text-gray-500 mt-2">Start by making a deposit or transfer!</p>
                 </div>
-                <div className="text-right">
-                  <p className="font-bold text-purple-900">-$125.00</p>
-                  <p className="text-sm text-gray-600">2 hours ago</p>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-cyan-50 border-2 border-blue-200 rounded-lg">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
-                    <DollarSign className="h-5 w-5 text-white" />
-                  </div>
-                  <div>
-                    <p className="font-bold text-purple-900">Square Deposit</p>
-                    <p className="text-sm text-gray-600">Direct deposit from employer</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="font-bold text-purple-900">+$2,500.00</p>
-                  <p className="text-sm text-gray-600">Yesterday</p>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between p-4 bg-gradient-to-r from-purple-50 to-pink-50 border-2 border-purple-200 rounded-lg">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-purple-500 rounded-full flex items-center justify-center">
-                    <PiggyBank className="h-5 w-5 text-white" />
-                  </div>
-                  <div>
-                    <p className="font-bold text-purple-900">Savings Interest</p>
-                    <p className="text-sm text-gray-600">Monthly interest payment</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="font-bold text-purple-900">+$21.67</p>
-                  <p className="text-sm text-gray-600">3 days ago</p>
-                </div>
-              </div>
+              )}
             </div>
           </CardContent>
         </Card>

@@ -1,11 +1,14 @@
--- Seed data for SecureBank
+-- Seed data for SecureBank (SAMPLE DATA - DO NOT USE IN PRODUCTION)
+-- This file contains mock data for development/testing purposes only
+-- Remove or comment out before deploying to production
 
+/*
 -- Insert admin account
 INSERT INTO admin_account (total_fees_collected, total_penalty_fees) 
 VALUES (0.00, 0.00) 
 ON CONFLICT DO NOTHING;
 
--- Insert sample users
+-- Insert sample users (MOCK DATA - REMOVE IN PRODUCTION)
 INSERT INTO users (email, phone, first_name, last_name, password_hash, address, date_of_birth, is_verified) VALUES
 ('john.doe@example.com', '+1-555-123-4567', 'John', 'Doe', '$2b$10$hash1', '123 Main St, New York, NY 10001', '1990-01-15', TRUE),
 ('sarah.johnson@example.com', '+1-555-234-5678', 'Sarah', 'Johnson', '$2b$10$hash2', '456 Oak Ave, Los Angeles, CA 90210', '1985-05-22', TRUE),
@@ -13,7 +16,7 @@ INSERT INTO users (email, phone, first_name, last_name, password_hash, address, 
 ('emma.davis@example.com', '+1-555-456-7890', 'Emma', 'Davis', '$2b$10$hash4', '321 Elm St, Houston, TX 77001', '1988-03-14', TRUE)
 ON CONFLICT (email) DO NOTHING;
 
--- Insert wallet accounts for users
+-- Insert wallet accounts for users (MOCK DATA - REMOVE IN PRODUCTION)
 INSERT INTO accounts (user_id, account_type, balance) 
 SELECT id, 'wallet', 
     CASE 
@@ -25,13 +28,13 @@ SELECT id, 'wallet',
 FROM users 
 WHERE email IN ('john.doe@example.com', 'sarah.johnson@example.com', 'mike.wilson@example.com', 'emma.davis@example.com');
 
--- Insert locked savings account for John
+-- Insert locked savings account for John (MOCK DATA - REMOVE IN PRODUCTION)
 INSERT INTO accounts (user_id, account_type, balance, is_locked, lock_duration_months, lock_start_date, lock_end_date, interest_rate, early_withdrawal_penalty, purpose)
 SELECT id, 'savings', 5000.00, TRUE, 6, '2024-01-01', '2024-07-01', 3.0, 1.5, 'Emergency Fund'
 FROM users 
 WHERE email = 'john.doe@example.com';
 
--- Insert sample transactions
+-- Insert sample transactions (MOCK DATA - REMOVE IN PRODUCTION)
 INSERT INTO transactions (transaction_id, sender_id, recipient_id, recipient_email, amount, fee, status, transaction_type, memo) VALUES
 ('TXN001', 
     (SELECT id FROM users WHERE email = 'john.doe@example.com'),
@@ -49,19 +52,26 @@ INSERT INTO transactions (transaction_id, sender_id, recipient_id, recipient_ema
     'john.doe@example.com',
     500.00, 10.00, 'completed', 'transfer', 'Freelance payment');
 
--- Insert geofence for pending transaction
+-- Insert geofence for pending transaction (MOCK DATA - REMOVE IN PRODUCTION)
 INSERT INTO geofences (transaction_id, center_lat, center_lng, radius_meters, name)
 SELECT id, 40.7128, -74.0060, 1000, 'Downtown NYC'
 FROM transactions 
 WHERE transaction_id = 'TXN002';
 
--- Insert time restriction for pending transaction
+-- Insert time restriction for pending transaction (MOCK DATA - REMOVE IN PRODUCTION)
 INSERT INTO time_restrictions (transaction_id, expires_at)
 SELECT id, CURRENT_TIMESTAMP + INTERVAL '24 hours'
 FROM transactions 
 WHERE transaction_id = 'TXN002';
 
--- Insert security settings for users
+-- Insert security settings for users (MOCK DATA - REMOVE IN PRODUCTION)
 INSERT INTO security_settings (user_id, two_factor_enabled, biometric_enabled)
 SELECT id, TRUE, FALSE
 FROM users;
+*/
+
+-- To use this application in production:
+-- 1. Remove or comment out all mock data above
+-- 2. Ensure your Supabase database schema is properly set up
+-- 3. Configure proper authentication with Supabase Auth
+-- 4. Users will be created through the registration process
