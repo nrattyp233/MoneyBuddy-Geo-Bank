@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { LogIn, Mail, Lock, ArrowRight, UserPlus } from "lucide-react"
 import { MoneyBuddyLogo } from "@/components/money-buddy-logo"
+import { supabase } from "@/lib/supabase"
 
 export default function LoginPage() {
   const [formData, setFormData] = useState({
@@ -57,43 +58,24 @@ export default function LoginPage() {
     setIsLoading(true)
 
     try {
-      // Simulate login process
-      await new Promise((resolve) => setTimeout(resolve, 1500))
+      // Authenticate with Supabase
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email: formData.email.trim(),
+        password: formData.password,
+      })
 
-      // Check if user exists in localStorage
-      const existingUser = localStorage.getItem("moneyBuddyUser")
-      let userData
-
-      if (existingUser) {
-        // Load existing user data
-        userData = JSON.parse(existingUser)
-        userData.lastLogin = new Date().toISOString()
-        userData.isAuthenticated = true
-      } else {
-        // Create demo user for login
-        userData = {
-          firstName: "Demo",
-          lastName: "User",
-          email: formData.email.trim(),
-          fullName: "Demo User",
-          registeredAt: new Date().toISOString(),
-          lastLogin: new Date().toISOString(),
-          isAuthenticated: true,
-        }
+      if (authError) {
+        console.error("Authentication error:", authError)
+        setErrors({ submit: authError.message || "Login failed. Please check your credentials." })
+        return
       }
 
-      // Store user data in multiple places for persistence
-      localStorage.setItem("moneyBuddyUser", JSON.stringify(userData))
-      sessionStorage.setItem("moneyBuddyUser", JSON.stringify(userData))
+      if (!authData.user) {
+        setErrors({ submit: "Login failed. No user data received." })
+        return
+      }
 
-      // Store individual fields as backup
-      localStorage.setItem("userFirstName", userData.firstName)
-      localStorage.setItem("userLastName", userData.lastName)
-      localStorage.setItem("userFullName", userData.fullName)
-      localStorage.setItem("userEmail", userData.email)
-      localStorage.setItem("isAuthenticated", "true")
-
-      console.log("User logged in and data stored:", userData)
+      console.log("User authenticated successfully:", authData.user.id)
 
       // Redirect to dashboard
       router.push("/dashboard")

@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { UserPlus, Mail, Lock, User, ArrowRight } from "lucide-react"
 import { MoneyBuddyLogo } from "@/components/money-buddy-logo"
+import { supabase, createUser } from "@/lib/supabase"
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -76,35 +77,54 @@ export default function RegisterPage() {
     setIsLoading(true)
 
     try {
-      // Simulate registration process
-      await new Promise((resolve) => setTimeout(resolve, 1500))
-
-      // Store user data in multiple places for persistence
-      const userData = {
-        firstName: formData.firstName.trim(),
-        lastName: formData.lastName.trim(),
+      // Register with Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email.trim(),
-        fullName: `${formData.firstName.trim()} ${formData.lastName.trim()}`,
-        registeredAt: new Date().toISOString(),
-        isAuthenticated: true,
+        password: formData.password,
+        options: {
+          data: {
+            first_name: formData.firstName.trim(),
+            last_name: formData.lastName.trim(),
+            full_name: `${formData.firstName.trim()} ${formData.lastName.trim()}`,
+          }
+        }
+      })
+
+      if (authError) {
+        console.error("Authentication error:", authError)
+        setErrors({ submit: authError.message || "Registration failed. Please try again." })
+        return
       }
 
-      // Store in localStorage
-      localStorage.setItem("moneyBuddyUser", JSON.stringify(userData))
+      if (!authData.user) {
+        setErrors({ submit: "Registration failed. No user data received." })
+        return
+      }
 
-      // Store in sessionStorage as backup
-      sessionStorage.setItem("moneyBuddyUser", JSON.stringify(userData))
+      // Create user record in database
+      const userData = {
+        email: formData.email.trim(),
+        name: `${formData.firstName.trim()} ${formData.lastName.trim()}`,
+        balance: 0,
+        savings_balance: 0,
+      }
 
-      // Store individual fields as backup
-      localStorage.setItem("userFirstName", userData.firstName)
-      localStorage.setItem("userLastName", userData.lastName)
-      localStorage.setItem("userFullName", userData.fullName)
-      localStorage.setItem("userEmail", userData.email)
-      localStorage.setItem("isAuthenticated", "true")
+      const createdUser = await createUser(userData)
+      
+      if (!createdUser) {
+        console.warn("Failed to create user record in database, but auth account was created")
+      }
 
-      console.log("User registered and data stored:", userData)
+      console.log("User registered successfully:", authData.user.id)
 
-      // Redirect to dashboard
+      // Check if email verification is required
+      if (!authData.session) {
+        setErrors({ submit: "Please check your email to verify your account before signing in." })
+        // Optionally redirect to a verification page or show success message
+        return
+      }
+
+      // Redirect to dashboard if automatically signed in
       router.push("/dashboard")
     } catch (error) {
       console.error("Registration error:", error)
