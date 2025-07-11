@@ -1,88 +1,59 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { DollarSign, TrendingUp, PiggyBank, Send, MapPin, MessageCircle, Sparkles, Zap } from "lucide-react"
 import { DashboardLayout } from "@/components/dashboard-layout"
+import { supabase, getUserById, getUserTransactions, type User, type Transaction } from "@/lib/supabase"
 import Link from "next/link"
 
-interface UserData {
-  firstName: string
-  lastName: string
-  fullName: string
-  email: string
-  phone?: string
-  balance: number
-  savingsBalance: number
-  registeredAt: string
-  lastLogin?: string
-  isLoggedIn: boolean
-}
-
 export default function DashboardPage() {
-  const [userData, setUserData] = useState<UserData | null>(null)
+  const [userData, setUserData] = useState<User | null>(null)
+  const [transactions, setTransactions] = useState<Transaction[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const router = useRouter()
 
   useEffect(() => {
-    // Load user data from storage
-    const loadUserData = () => {
+    const loadUserData = async () => {
       try {
-        // Try localStorage first
-        let storedUser = localStorage.getItem("moneyBuddyUser")
-
-        if (!storedUser) {
-          // Try sessionStorage as backup
-          storedUser = sessionStorage.getItem("moneyBuddyUser")
+        // Get current authenticated user
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+        
+        if (sessionError || !session?.user) {
+          console.error("No authenticated session found:", sessionError)
+          router.push("/auth/login")
+          return
         }
 
-        if (storedUser) {
-          const parsedUser = JSON.parse(storedUser)
-          setUserData(parsedUser)
-          console.log("User data loaded:", parsedUser)
-        } else {
-          // Fallback: try individual fields
-          const firstName = localStorage.getItem("userFirstName") || "Demo"
-          const lastName = localStorage.getItem("userLastName") || "User"
-          const email = localStorage.getItem("userEmail") || "demo@moneybuddy.com"
-
-          const fallbackUser: UserData = {
-            firstName,
-            lastName,
-            fullName: `${firstName} ${lastName}`,
-            email,
-            balance: 1250.75,
-            savingsBalance: 5000.0,
-            registeredAt: new Date().toISOString(),
-            isLoggedIn: true,
-          }
-
-          setUserData(fallbackUser)
-          // Save the fallback data
-          localStorage.setItem("moneyBuddyUser", JSON.stringify(fallbackUser))
-          console.log("Fallback user data created:", fallbackUser)
+        // Get user data from database
+        const user = await getUserById(session.user.id)
+        
+        if (!user) {
+          console.error("User not found in database")
+          setError("User data not found. Please contact support.")
+          return
         }
+
+        setUserData(user)
+
+        // Load recent transactions
+        const userTransactions = await getUserTransactions(user.id, 5)
+        setTransactions(userTransactions)
+
+        console.log("User data loaded successfully:", user)
       } catch (error) {
         console.error("Error loading user data:", error)
-        // Ultimate fallback
-        const defaultUser: UserData = {
-          firstName: "Money",
-          lastName: "Buddy",
-          fullName: "Money Buddy",
-          email: "user@moneybuddy.com",
-          balance: 1250.75,
-          savingsBalance: 5000.0,
-          registeredAt: new Date().toISOString(),
-          isLoggedIn: true,
-        }
-        setUserData(defaultUser)
+        setError("Failed to load user data. Please try refreshing the page.")
       } finally {
         setIsLoading(false)
       }
     }
 
     loadUserData()
-  }, [])
+  }, [router])
 
   if (isLoading) {
     return (
@@ -91,6 +62,28 @@ export default function DashboardPage() {
           <div className="text-center">
             <div className="w-12 h-12 border-4 border-purple-300 border-t-purple-600 rounded-full animate-spin mx-auto mb-4"></div>
             <p className="text-white font-medium text-lg drop-shadow-lg">Loading your Money Buddy dashboard...</p>
+          </div>
+        </div>
+      </DashboardLayout>
+    )
+  }
+
+  if (error) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center min-h-96">
+          <div className="text-center max-w-md">
+            <div className="w-16 h-16 bg-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
+              <span className="text-white text-2xl">⚠️</span>
+            </div>
+            <h2 className="text-2xl font-bold text-white drop-shadow-lg mb-2">Unable to Load Dashboard</h2>
+            <p className="text-white/90 font-medium drop-shadow-lg mb-4">{error}</p>
+            <Button 
+              onClick={() => window.location.reload()} 
+              className="bg-lime-500 hover:bg-lime-600 text-white font-bold px-6 py-2"
+            >
+              Try Again
+            </Button>
           </div>
         </div>
       </DashboardLayout>
@@ -114,7 +107,7 @@ export default function DashboardPage() {
             </div>
             <div>
               <h1 className="text-5xl font-bold text-white drop-shadow-2xl">
-                Welcome back, {userData?.firstName || "Friend"}!<span className="text-lime-300 ml-2">🐵</span>
+                Welcome back, {userData?.name?.split(' ')[0] || "Friend"}!<span className="text-lime-300 ml-2">🐵</span>
               </h1>
               <p className="text-white/95 text-xl font-medium drop-shadow-lg">
                 Your Money Buddy is ready to help you manage your finances
@@ -134,7 +127,7 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="text-4xl font-bold text-purple-900 mb-2">
-                ${userData?.balance?.toLocaleString("en-US", { minimumFractionDigits: 2 }) || "1,250.75"}
+                ${userData?.balance?.toLocaleString("en-US", { minimumFractionDigits: 2 }) || "0.00"}
               </div>
               <p className="text-gray-700 font-medium flex items-center">
                 <TrendingUp className="h-4 w-4 mr-1 text-lime-500" />
@@ -152,7 +145,7 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="text-4xl font-bold text-purple-900 mb-2">
-                ${userData?.savingsBalance?.toLocaleString("en-US", { minimumFractionDigits: 2 }) || "5,000.00"}
+                ${userData?.savings_balance?.toLocaleString("en-US", { minimumFractionDigits: 2 }) || "0.00"}
               </div>
               <p className="text-gray-700 font-medium flex items-center">
                 <TrendingUp className="h-4 w-4 mr-1 text-lime-500" />
@@ -224,53 +217,87 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 bg-gradient-to-r from-lime-50 to-green-50 border-2 border-lime-200 rounded-lg">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-lime-500 rounded-full flex items-center justify-center">
-                    <Send className="h-5 w-5 text-white" />
-                  </div>
-                  <div>
-                    <p className="font-bold text-purple-900">Sent to Sarah Johnson</p>
-                    <p className="text-sm text-gray-600">Geofenced transfer • Central Park</p>
-                  </div>
+              {error && (
+                <div className="p-4 bg-red-50 border-2 border-red-200 rounded-lg">
+                  <p className="text-red-600 font-medium">{error}</p>
                 </div>
-                <div className="text-right">
-                  <p className="font-bold text-purple-900">-$125.00</p>
-                  <p className="text-sm text-gray-600">2 hours ago</p>
+              )}
+              
+              {transactions.length === 0 ? (
+                <div className="p-4 bg-gray-50 border-2 border-gray-200 rounded-lg text-center">
+                  <p className="text-gray-600 font-medium">No recent transactions found.</p>
+                  <p className="text-sm text-gray-500 mt-1">Start using Money Buddy to see your activity here!</p>
                 </div>
-              </div>
+              ) : (
+                transactions.map((transaction) => {
+                  const getTransactionIcon = (type: string) => {
+                    switch (type) {
+                      case 'deposit': return DollarSign
+                      case 'withdrawal': return DollarSign
+                      case 'transfer': return Send
+                      case 'geofence_transfer': return MapPin
+                      default: return DollarSign
+                    }
+                  }
 
-              <div className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-cyan-50 border-2 border-blue-200 rounded-lg">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
-                    <DollarSign className="h-5 w-5 text-white" />
-                  </div>
-                  <div>
-                    <p className="font-bold text-purple-900">Square Deposit</p>
-                    <p className="text-sm text-gray-600">Direct deposit from employer</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="font-bold text-purple-900">+$2,500.00</p>
-                  <p className="text-sm text-gray-600">Yesterday</p>
-                </div>
-              </div>
+                  const getTransactionColor = (type: string) => {
+                    switch (type) {
+                      case 'deposit': return 'from-lime-50 to-green-50 border-lime-200'
+                      case 'withdrawal': return 'from-red-50 to-red-50 border-red-200'
+                      case 'transfer': return 'from-blue-50 to-cyan-50 border-blue-200'
+                      case 'geofence_transfer': return 'from-purple-50 to-pink-50 border-purple-200'
+                      default: return 'from-gray-50 to-gray-50 border-gray-200'
+                    }
+                  }
 
-              <div className="flex items-center justify-between p-4 bg-gradient-to-r from-purple-50 to-pink-50 border-2 border-purple-200 rounded-lg">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-purple-500 rounded-full flex items-center justify-center">
-                    <PiggyBank className="h-5 w-5 text-white" />
-                  </div>
-                  <div>
-                    <p className="font-bold text-purple-900">Savings Interest</p>
-                    <p className="text-sm text-gray-600">Monthly interest payment</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="font-bold text-purple-900">+$21.67</p>
-                  <p className="text-sm text-gray-600">3 days ago</p>
-                </div>
-              </div>
+                  const getTransactionBgColor = (type: string) => {
+                    switch (type) {
+                      case 'deposit': return 'bg-lime-500'
+                      case 'withdrawal': return 'bg-red-500'
+                      case 'transfer': return 'bg-blue-500'
+                      case 'geofence_transfer': return 'bg-purple-500'
+                      default: return 'bg-gray-500'
+                    }
+                  }
+
+                  const TransactionIcon = getTransactionIcon(transaction.type)
+                  const isCredit = transaction.type === 'deposit'
+                  const amount = isCredit ? `+$${transaction.amount.toFixed(2)}` : `-$${transaction.amount.toFixed(2)}`
+
+                  return (
+                    <div key={transaction.id} className={`flex items-center justify-between p-4 bg-gradient-to-r ${getTransactionColor(transaction.type)} border-2 rounded-lg`}>
+                      <div className="flex items-center space-x-3">
+                        <div className={`w-10 h-10 ${getTransactionBgColor(transaction.type)} rounded-full flex items-center justify-center`}>
+                          <TransactionIcon className="h-5 w-5 text-white" />
+                        </div>
+                        <div>
+                          <p className="font-bold text-purple-900">
+                            {transaction.description || 
+                             (transaction.type === 'deposit' ? 'Deposit' :
+                              transaction.type === 'withdrawal' ? 'Withdrawal' :
+                              transaction.type === 'transfer' ? `Transfer to ${transaction.recipient_email}` :
+                              transaction.type === 'geofence_transfer' ? 'Geofence Transfer' : 
+                              'Transaction')
+                            }
+                          </p>
+                          <p className="text-sm text-gray-600">
+                            {transaction.status === 'completed' ? 'Completed' : 
+                             transaction.status === 'pending' ? 'Pending' : 
+                             transaction.status}
+                            {transaction.recipient_email && ` • ${transaction.recipient_email}`}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className={`font-bold ${isCredit ? 'text-green-600' : 'text-red-600'}`}>{amount}</p>
+                        <p className="text-sm text-gray-600">
+                          {new Date(transaction.created_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                  )
+                })
+              )}
             </div>
           </CardContent>
         </Card>
