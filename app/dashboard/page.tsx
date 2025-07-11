@@ -9,8 +9,12 @@ import { DashboardLayout } from "@/components/dashboard-layout"
 import { supabase, getUserById, getUserTransactions, type User, type Transaction } from "@/lib/supabase"
 import Link from "next/link"
 
+interface UserData extends User {
+  isLoggedIn: boolean
+}
+
 export default function DashboardPage() {
-  const [userData, setUserData] = useState<User | null>(null)
+  const [userData, setUserData] = useState<UserData | null>(null)
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -19,31 +23,34 @@ export default function DashboardPage() {
   useEffect(() => {
     const loadUserData = async () => {
       try {
-        // Get current authenticated user
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+        // Check if user is authenticated
+        const { data: { user } } = await supabase.auth.getUser()
         
-        if (sessionError || !session?.user) {
-          console.error("No authenticated session found:", sessionError)
+        if (!user) {
+          console.log("No authenticated user found, redirecting to login")
           router.push("/auth/login")
           return
         }
 
         // Get user data from database
-        const user = await getUserById(session.user.id)
+        const dbUser = await getUserById(user.id)
         
-        if (!user) {
+        if (!dbUser) {
           console.error("User not found in database")
           setError("User data not found. Please contact support.")
           return
         }
 
-        setUserData(user)
-
         // Load recent transactions
         const userTransactions = await getUserTransactions(user.id, 5)
+        
+        setUserData({
+          ...dbUser,
+          isLoggedIn: true,
+        })
         setTransactions(userTransactions)
 
-        console.log("User data loaded successfully:", user)
+        console.log("User data loaded successfully:", dbUser)
       } catch (error) {
         console.error("Error loading user data:", error)
         setError("Failed to load user data. Please try refreshing the page.")
@@ -90,6 +97,26 @@ export default function DashboardPage() {
     )
   }
 
+  if (!userData) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center min-h-96">
+          <div className="text-center">
+            <p className="text-white font-medium text-lg drop-shadow-lg">Unable to load user data. Please try logging in again.</p>
+            <Button 
+              onClick={() => router.push("/auth/login")}
+              className="mt-4 bg-white/20 hover:bg-white/30 text-white"
+            >
+              Go to Login
+            </Button>
+          </div>
+        </div>
+      </DashboardLayout>
+    )
+  }
+
+  // Extract first name from full name
+  const firstName = userData.name.split(' ')[0] || "Friend"
   return (
     <DashboardLayout>
       <div className="space-y-8 relative">
@@ -107,7 +134,7 @@ export default function DashboardPage() {
             </div>
             <div>
               <h1 className="text-5xl font-bold text-white drop-shadow-2xl">
-                Welcome back, {userData?.name?.split(' ')[0] || "Friend"}!<span className="text-lime-300 ml-2">🐵</span>
+                Welcome back, {firstName}!<span className="text-lime-300 ml-2">🐵</span>
               </h1>
               <p className="text-white/95 text-xl font-medium drop-shadow-lg">
                 Your Money Buddy is ready to help you manage your finances
@@ -127,11 +154,11 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="text-4xl font-bold text-purple-900 mb-2">
-                ${userData?.balance?.toLocaleString("en-US", { minimumFractionDigits: 2 }) || "0.00"}
+                ${userData.balance.toLocaleString("en-US", { minimumFractionDigits: 2 })}
               </div>
               <p className="text-gray-700 font-medium flex items-center">
                 <TrendingUp className="h-4 w-4 mr-1 text-lime-500" />
-                +2.5% from last month
+                Ready for transactions
               </p>
             </CardContent>
           </Card>
@@ -145,11 +172,11 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="text-4xl font-bold text-purple-900 mb-2">
-                ${userData?.savings_balance?.toLocaleString("en-US", { minimumFractionDigits: 2 }) || "0.00"}
+                ${userData.savings_balance.toLocaleString("en-US", { minimumFractionDigits: 2 })}
               </div>
               <p className="text-gray-700 font-medium flex items-center">
                 <TrendingUp className="h-4 w-4 mr-1 text-lime-500" />
-                +5.2% APY interest
+                Earning interest
               </p>
             </CardContent>
           </Card>
