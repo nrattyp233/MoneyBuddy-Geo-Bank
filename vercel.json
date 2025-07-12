@@ -9,11 +9,14 @@
     }
   },
   "env": {
-    "SQUARE_ACCESS_TOKEN": "@square-access-token",
-    "SQUARE_APPLICATION_ID": "@square-application-id",
-    "SQUARE_ENVIRONMENT": "production",
+    "SUPABASE_URL": "@supabase-url",
+    "SUPABASE_ANON_KEY": "@supabase-anon-key",
+    "SUPABASE_SERVICE_ROLE_KEY": "@supabase-service-role-key",
     "NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN": "@mapbox-access-token",
-    "DATABASE_URL": "@database-url",
+    "PAYPAL_CLIENT_ID": "@paypal-client-id",
+    "PAYPAL_CLIENT_SECRET": "@paypal-client-secret",
+    "PAYPAL_ENVIRONMENT": "@paypal-environment",
+    "NEXT_PUBLIC_PAYPAL_CLIENT_ID": "@paypal-client-id-public",
     "GOOGLE_GENERATIVE_AI_API_KEY": "@google-ai-api-key",
     "NEXTAUTH_SECRET": "@nextauth-secret",
     "NEXTAUTH_URL": "@nextauth-url"

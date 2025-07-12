@@ -3,17 +3,15 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { DashboardLayout } from "@/components/dashboard-layout"
-import { MapboxStatus } from "@/components/mapbox-status"
-import { SquareStatus } from "@/components/square-status"
 import { MoneyBuddyLogo } from "@/components/money-buddy-logo"
 import { Settings, Database, CreditCard, Bot, Shield, Users, DollarSign } from "lucide-react"
 
 export default function AdminPage() {
   const integrationStatus = [
     {
-      name: "Square Payments",
-      status: process.env.SQUARE_ACCESS_TOKEN ? "configured" : "pending",
-      description: "Real money processing",
+      name: "PayPal Payments",
+      status: process.env.PAYPAL_CLIENT_ID ? "configured" : "pending",
+      description: "PayPal payment processing",
       icon: CreditCard,
     },
     {
@@ -68,11 +66,29 @@ export default function AdminPage() {
           ))}
         </div>
 
-        {/* Square Configuration */}
-        <SquareStatus />
-
-        {/* Mapbox Configuration */}
-        <MapboxStatus />
+        {/* PayPal Configuration */}
+        <Card className="border-2 border-blue-100 bg-gradient-to-br from-blue-50/50 to-cyan-50/50">
+          <CardHeader>
+            <CardTitle className="text-blue-700">PayPal Configuration</CardTitle>
+            <CardDescription>PayPal payment processing status</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <CreditCard className="h-5 w-5 text-blue-600" />
+                <div>
+                  <p className="font-medium">PayPal Integration</p>
+                  <p className="text-sm text-gray-600">
+                    {process.env.PAYPAL_CLIENT_ID ? 'Configured' : 'Not configured'}
+                  </p>
+                </div>
+              </div>
+              <Badge variant={process.env.PAYPAL_CLIENT_ID ? "default" : "secondary"}>
+                {process.env.PAYPAL_CLIENT_ID ? 'Active' : 'Pending'}
+              </Badge>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Integration Status */}
         <Card className="border-2 border-purple-100">
@@ -140,7 +156,7 @@ export default function AdminPage() {
                   <Badge className="bg-green-100 text-green-800">Low</Badge>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm">Square Webhook Status</span>
+                  <span className="text-sm">PayPal Webhook Status</span>
                   <Badge className="bg-green-100 text-green-800">Active</Badge>
                 </div>
               </div>

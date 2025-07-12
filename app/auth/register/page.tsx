@@ -8,9 +8,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { UserPlus, Mail, Lock, User, ArrowRight } from "lucide-react"
+import { UserPlus, Mail, Lock, User, ArrowRight, Phone } from "lucide-react"
 import { MoneyBuddyLogo } from "@/components/money-buddy-logo"
-import { supabase, createUser } from "@/lib/supabase"
+import { supabase } from "@/lib/supabase"
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -19,6 +19,7 @@ export default function RegisterPage() {
     email: "",
     password: "",
     confirmPassword: "",
+    phone: "",
   })
   const [isLoading, setIsLoading] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -77,54 +78,79 @@ export default function RegisterPage() {
     setIsLoading(true)
 
     try {
-      // Register with Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: formData.email.trim(),
-        password: formData.password,
-        options: {
-          data: {
-            first_name: formData.firstName.trim(),
-            last_name: formData.lastName.trim(),
-            full_name: `${formData.firstName.trim()} ${formData.lastName.trim()}`,
-          }
-        }
+      // Call our API route to handle registration
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: formData.email.trim(),
+          password: formData.password,
+          name: `${formData.firstName.trim()} ${formData.lastName.trim()}`,
+          phone: formData.phone.trim() || null,
+        }),
       })
 
-      if (authError) {
-        console.error("Authentication error:", authError)
-        setErrors({ submit: authError.message || "Registration failed. Please try again." })
+      const result = await response.json()
+
+      if (!response.ok) {
+        // Check if the error is "email already exists"
+        if (result.error?.includes("already exists")) {
+          // Try to sign in instead
+          const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+            email: formData.email.trim(),
+            password: formData.password,
+          })
+
+          if (signInError) {
+            setErrors({ submit: "An account with this email already exists. Please check your password or try logging in." })
+            return
+          }
+
+          // User signed in successfully, now sync the database record
+          if (signInData.user) {
+            const syncResponse = await fetch("/api/auth/sync-user", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                userId: signInData.user.id,
+                name: `${formData.firstName.trim()} ${formData.lastName.trim()}`,
+                phone: formData.phone.trim() || null,
+              }),
+            })
+
+            if (!syncResponse.ok) {
+              console.warn("Failed to sync user to database, but sign-in was successful")
+            }
+
+            // Redirect to dashboard
+            router.push("/dashboard")
+            return
+          }
+        }
+
+        setErrors({ submit: result.error || "Registration failed. Please try again." })
         return
       }
 
-      if (!authData.user) {
-        setErrors({ submit: "Registration failed. No user data received." })
-        return
-      }
+      console.log("User registered successfully:", result.user.id)
 
-      // Create user record in database
-      const userData = {
+      // Now sign in the user
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
         email: formData.email.trim(),
-        name: `${formData.firstName.trim()} ${formData.lastName.trim()}`,
-        balance: 0,
-        savings_balance: 0,
-      }
+        password: formData.password,
+      })
 
-      const createdUser = await createUser(userData)
-      
-      if (!createdUser) {
-        console.warn("Failed to create user record in database, but auth account was created")
-      }
-
-      console.log("User registered successfully:", authData.user.id)
-
-      // Check if email verification is required
-      if (!authData.session) {
-        setErrors({ submit: "Please check your email to verify your account before signing in." })
-        // Optionally redirect to a verification page or show success message
+      if (signInError) {
+        console.error("Sign-in error:", signInError)
+        setErrors({ submit: "Account created successfully, but sign-in failed. Please try logging in manually." })
         return
       }
 
-      // Redirect to dashboard if automatically signed in
+      // Redirect to dashboard
       router.push("/dashboard")
     } catch (error) {
       console.error("Registration error:", error)
@@ -225,6 +251,28 @@ export default function RegisterPage() {
                 />
               </div>
               {errors.email && <p className="text-red-600 text-sm font-medium">{errors.email}</p>}
+            </div>
+
+            {/* Phone Field */}
+            <div className="space-y-2">
+              <Label htmlFor="phone" className="text-purple-900 font-bold">
+                Phone Number (Optional)
+              </Label>
+              <div className="relative">
+                <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-purple-400" />
+                <Input
+                  id="phone"
+                  name="phone"
+                  type="tel"
+                  placeholder="(555) 123-4567"
+                  value={formData.phone}
+                  onChange={handleInputChange}
+                  className={`pl-10 border-2 focus:border-purple-400 bg-white font-medium ${
+                    errors.phone ? "border-red-400" : "border-purple-200"
+                  }`}
+                />
+              </div>
+              {errors.phone && <p className="text-red-600 text-sm font-medium">{errors.phone}</p>}
             </div>
 
             {/* Password Fields */}

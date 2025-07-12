@@ -4,7 +4,12 @@ const supabaseUrl = process.env.SUPABASE_URL!
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY!
 
 // Client-side Supabase client
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    storageKey: 'money-buddy-auth',
+    storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+  }
+})
 
 // Server-side Supabase client with service role key
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -13,6 +18,7 @@ export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey, {
   auth: {
     autoRefreshToken: false,
     persistSession: false,
+    storageKey: 'money-buddy-admin-auth',
   },
 })
 
@@ -128,7 +134,7 @@ export interface Notification {
 
 // Helper functions
 export async function getUserById(id: string): Promise<User | null> {
-  const { data, error } = await supabase.from("users").select("*").eq("id", id).single()
+  const { data, error } = await supabaseAdmin.from("users").select("*").eq("id", id).single()
 
   if (error) {
     console.error("Error fetching user:", error)
@@ -139,7 +145,7 @@ export async function getUserById(id: string): Promise<User | null> {
 }
 
 export async function getUserByEmail(email: string): Promise<User | null> {
-  const { data, error } = await supabase.from("users").select("*").eq("email", email).single()
+  const { data, error } = await supabaseAdmin.from("users").select("*").eq("email", email).single()
 
   if (error) {
     console.error("Error fetching user by email:", error)
@@ -149,8 +155,8 @@ export async function getUserByEmail(email: string): Promise<User | null> {
   return data
 }
 
-export async function createUser(userData: Omit<User, "id" | "created_at" | "updated_at">): Promise<User | null> {
-  const { data, error } = await supabase.from("users").insert(userData).select().single()
+export async function createUser(userData: Omit<User, "created_at" | "updated_at">): Promise<User | null> {
+  const { data, error } = await supabaseAdmin.from("users").insert(userData).select().single()
 
   if (error) {
     console.error("Error creating user:", error)
@@ -161,7 +167,7 @@ export async function createUser(userData: Omit<User, "id" | "created_at" | "upd
 }
 
 export async function getUserTransactions(userId: string, limit = 10): Promise<Transaction[]> {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from("transactions")
     .select("*")
     .eq("user_id", userId)
@@ -179,7 +185,7 @@ export async function getUserTransactions(userId: string, limit = 10): Promise<T
 export async function createTransaction(
   transactionData: Omit<Transaction, "id" | "created_at" | "updated_at">,
 ): Promise<Transaction | null> {
-  const { data, error } = await supabase.from("transactions").insert(transactionData).select().single()
+  const { data, error } = await supabaseAdmin.from("transactions").insert(transactionData).select().single()
 
   if (error) {
     console.error("Error creating transaction:", error)
@@ -190,7 +196,7 @@ export async function createTransaction(
 }
 
 export async function getUserGeofences(userId: string): Promise<Geofence[]> {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from("geofences")
     .select("*")
     .eq("user_id", userId)
@@ -208,7 +214,7 @@ export async function getUserGeofences(userId: string): Promise<Geofence[]> {
 export async function createGeofence(
   geofenceData: Omit<Geofence, "id" | "created_at" | "updated_at">,
 ): Promise<Geofence | null> {
-  const { data, error } = await supabase.from("geofences").insert(geofenceData).select().single()
+  const { data, error } = await supabaseAdmin.from("geofences").insert(geofenceData).select().single()
 
   if (error) {
     console.error("Error creating geofence:", error)
@@ -219,7 +225,7 @@ export async function createGeofence(
 }
 
 export async function getActiveGeofencesAtLocation(lat: number, lng: number): Promise<Geofence[]> {
-  const { data, error } = await supabase.rpc("get_active_geofences_at_location", {
+  const { data, error } = await supabaseAdmin.rpc("get_active_geofences_at_location", {
     check_lat: lat,
     check_lng: lng,
   })
@@ -233,7 +239,7 @@ export async function getActiveGeofencesAtLocation(lat: number, lng: number): Pr
 }
 
 export async function getUserSavingsLocks(userId: string): Promise<SavingsLock[]> {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from("savings_locks")
     .select("*")
     .eq("user_id", userId)
@@ -250,7 +256,7 @@ export async function getUserSavingsLocks(userId: string): Promise<SavingsLock[]
 export async function createSavingsLock(
   lockData: Omit<SavingsLock, "id" | "created_at" | "updated_at">,
 ): Promise<SavingsLock | null> {
-  const { data, error } = await supabase.from("savings_locks").insert(lockData).select().single()
+  const { data, error } = await supabaseAdmin.from("savings_locks").insert(lockData).select().single()
 
   if (error) {
     console.error("Error creating savings lock:", error)
@@ -261,7 +267,7 @@ export async function createSavingsLock(
 }
 
 export async function getUserNotifications(userId: string, limit = 20): Promise<Notification[]> {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from("notifications")
     .select("*")
     .eq("user_id", userId)
@@ -277,7 +283,7 @@ export async function getUserNotifications(userId: string, limit = 20): Promise<
 }
 
 export async function markNotificationAsRead(notificationId: string): Promise<boolean> {
-  const { error } = await supabase.from("notifications").update({ is_read: true }).eq("id", notificationId)
+  const { error } = await supabaseAdmin.from("notifications").update({ is_read: true }).eq("id", notificationId)
 
   if (error) {
     console.error("Error marking notification as read:", error)

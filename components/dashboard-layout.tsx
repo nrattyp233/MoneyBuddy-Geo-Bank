@@ -97,8 +97,14 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-primary flex items-center justify-center">
-        <div className="text-center">
+      <div className="min-h-screen bg-gradient-to-br from-purple-600 via-blue-600 to-lime-500 flex items-center justify-center relative overflow-hidden">
+        {/* Animated background elements */}
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-white/10 rounded-full blur-3xl animate-pulse"></div>
+          <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-lime-400/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-blue-400/5 rounded-full blur-3xl animate-pulse delay-500"></div>
+        </div>
+        <div className="text-center relative z-10">
           <div className="w-12 h-12 border-4 border-white/30 border-t-white rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-white font-medium text-lg drop-shadow-lg">Loading Money Buddy...</p>
         </div>
@@ -108,10 +114,16 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gradient-primary flex items-center justify-center">
-        <div className="text-center">
+      <div className="min-h-screen bg-gradient-to-br from-purple-600 via-blue-600 to-lime-500 flex items-center justify-center relative overflow-hidden">
+        {/* Animated background elements */}
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-white/10 rounded-full blur-3xl animate-pulse"></div>
+          <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-lime-400/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-blue-400/5 rounded-full blur-3xl animate-pulse delay-500"></div>
+        </div>
+        <div className="text-center relative z-10">
           <p className="text-white font-medium text-lg drop-shadow-lg mb-4">Please sign in to continue</p>
-          <Button onClick={() => router.push("/auth/login")} className="bg-white/20 hover:bg-white/30 text-white">
+          <Button onClick={() => router.push("/auth/login")} className="bg-gradient-to-r from-lime-500 to-lime-600 hover:from-lime-600 hover:to-lime-700 text-white transform hover:scale-105 transition-all duration-300">
             Go to Login
           </Button>
         </div>
@@ -123,10 +135,16 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const firstName = user.name.split(' ')[0] || "User"
 
   return (
-    <div className="min-h-screen bg-gradient-primary">
+    <div className="min-h-screen bg-gradient-to-br from-purple-600 via-blue-600 to-lime-500 relative overflow-hidden">
+      {/* Animated background elements */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-white/10 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-lime-400/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-blue-400/5 rounded-full blur-3xl animate-pulse delay-500"></div>
+      </div>
       {/* Desktop Sidebar */}
       <div className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-72 lg:flex-col">
-        <div className="flex grow flex-col gap-y-5 overflow-y-auto bg-black/20 px-6 pb-4 backdrop-blur-sm border-r border-white/20">
+        <div className="flex grow flex-col gap-y-5 overflow-y-auto bg-white/20 px-6 pb-4 backdrop-blur-sm border-r border-white/30">
           <div className="flex h-16 shrink-0 items-center">
             <MoneyBuddyLogo size="md" />
             <span className="ml-3 text-xl font-bold text-white drop-shadow-lg">Money Buddy</span>
@@ -153,10 +171,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 </ul>
               </li>
               <li className="mt-auto">
-                <div className="bg-white/10 rounded-lg p-4 backdrop-blur-sm border border-white/20">
+                <div className="bg-white/10 rounded-lg p-4 backdrop-blur-sm border border-white/30">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-medium text-white/80">Current Balance</span>
-                    <Badge className="bg-lime-400/20 text-lime-300 border-lime-400/30">Live</Badge>
+                    <Badge className="bg-lime-500/20 text-lime-300 border-lime-500/30">Live</Badge>
                   </div>
                   <div className="text-2xl font-bold text-white">${balance.toLocaleString()}</div>
                 </div>
@@ -167,14 +185,14 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       </div>
 
       {/* Mobile header */}
-      <div className="sticky top-0 z-40 flex items-center gap-x-6 bg-black/20 px-4 py-4 shadow-sm backdrop-blur-sm border-b border-white/20 lg:hidden">
+      <div className="sticky top-0 z-40 flex items-center gap-x-6 bg-white/20 px-4 py-4 shadow-sm backdrop-blur-sm border-b border-white/30 lg:hidden">
         <Sheet>
           <SheetTrigger asChild>
             <Button variant="ghost" className="text-white hover:bg-white/10" size="icon">
               <Menu className="h-6 w-6" />
             </Button>
           </SheetTrigger>
-          <SheetContent side="left" className="w-72 bg-gradient-primary border-white/20">
+          <SheetContent side="left" className="w-72 bg-gradient-to-br from-purple-600 via-blue-600 to-lime-500 border-white/30">
             <div className="flex items-center mb-6">
               <MoneyBuddyLogo size="md" />
               <span className="ml-3 text-xl font-bold text-white drop-shadow-lg">Money Buddy</span>
@@ -210,7 +228,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       {/* Main content */}
       <div className="lg:pl-72">
         <div className="sticky top-0 z-40 lg:mx-auto lg:max-w-7xl lg:px-8">
-          <div className="flex h-16 items-center gap-x-4 border-b border-white/20 bg-black/20 px-4 shadow-sm backdrop-blur-sm sm:gap-x-6 sm:px-6 lg:px-0 lg:shadow-none">
+          <div className="flex h-16 items-center gap-x-4 border-b border-white/30 bg-white/20 px-4 shadow-sm backdrop-blur-sm sm:gap-x-6 sm:px-6 lg:px-0 lg:shadow-none">
             <div className="flex flex-1 gap-x-4 self-stretch lg:gap-x-6">
               <div className="relative flex flex-1 items-center">
                 <div className="text-white font-medium">
@@ -220,7 +238,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               <div className="flex items-center gap-x-4 lg:gap-x-6">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="relative h-8 w-8 rounded-full bg-white/20 hover:bg-white/30">
+                    <Button variant="ghost" className="relative h-8 w-8 rounded-full bg-white/30 hover:bg-white/40">
                       <User className="h-4 w-4 text-white" />
                     </Button>
                   </DropdownMenuTrigger>
@@ -256,7 +274,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           </div>
         </div>
 
-        <main className="py-8">
+        <main className="py-8 relative z-10">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">{children}</div>
         </main>
       </div>
