@@ -187,3 +187,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ---
 
 Made with ❤️ by the Money Buddy team 🐵
+
+© 2025 Jefferson Nale. All rights reserved.  
+Money Buddy™ and Geo Bank™ are trademarks of Jefferson Nale.  
+Unauthorized reproduction, distribution, or use of this software or its components is strictly prohibited.
