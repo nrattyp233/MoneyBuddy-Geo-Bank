@@ -5,6 +5,5 @@ The following backend files were removed as part of the migration to Supabase:
 - app/api/setup-neon-tables/route.ts
 - app/api/test-neon-connection/route.ts
 - app/api/test-neon-database/route.ts
-- app/api/test-vercel-neon/route.ts
 
 You can now implement your new Supabase backend logic in the appropriate API routes and libraries.

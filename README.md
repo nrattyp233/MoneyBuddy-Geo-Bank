@@ -73,39 +73,6 @@ Your friendly financial companion! A modern banking application with geofencing,
 6. **Open your browser**
    Navigate to `http://localhost:3000`
 
-## 🏗️ Production Deployment
-
-### Deploy to Vercel
-
-1. **Install Vercel CLI**
-   \`\`\`bash
-   npm i -g vercel
-   \`\`\`
-
-2. **Deploy**
-   \`\`\`bash
-   vercel --prod
-   \`\`\`
-
-3. **Set environment variables in Vercel dashboard**
-   - Go to your project settings
-   - Add all production environment variables
-   - Redeploy
-
-### Environment Variables for Production
-
-\`\`\`env
-# Production Square API
-SQUARE_ACCESS_TOKEN=your_production_token
-SQUARE_APPLICATION_ID=your_production_app_id
-SQUARE_ENVIRONMENT=production
-
-# Production Database
-DATABASE_URL=your_production_database_url
-
-# Other production variables...
-\`\`\`
-
 ## 📱 API Endpoints
 
 - `POST /api/square/deposit` - Process deposits
@@ -181,7 +148,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Square**: Payment processing platform
 - **Mapbox**: Mapping and geofencing services
 - **Google AI**: Gemini AI assistant
-- **Vercel**: Hosting and deployment
 - **shadcn/ui**: UI component library
 
 ---

@@ -19,7 +19,10 @@
     "NEXT_PUBLIC_PAYPAL_CLIENT_ID": "@paypal-client-id-public",
     "GOOGLE_GENERATIVE_AI_API_KEY": "@google-ai-api-key",
     "NEXTAUTH_SECRET": "@nextauth-secret",
-    "NEXTAUTH_URL": "@nextauth-url"
+    "NEXTAUTH_URL": "@nextauth-url",
+    "STRIPE_SECRET_KEY": "@stripe-secret-key",
+    "STRIPE_PUBLISHABLE_KEY": "@stripe-publishable-key",
+    "STRIPE_WEBHOOK_SECRET": "@stripe-webhook-secret"
   },
   "functions": {
     "app/api/**/*.ts": {

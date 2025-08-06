@@ -18,12 +18,11 @@ This guide covers deploying Money Buddy to production with Supabase database, Ma
 
 ### Required Accounts & Services
 
-1. **Vercel Account** - For hosting and deployment
-2. **Supabase Account** - For production database
-3. **Mapbox Account** - For geofencing maps
-4. **Square Developer Account** - For payment processing
-5. **Google AI Account** - For AI chat features
-6. **Domain Name** (optional) - For custom domain
+1. **Supabase Account** - For production database
+2. **Mapbox Account** - For geofencing maps
+3. **Square Developer Account** - For payment processing
+4. **Google AI Account** - For AI chat features
+5. **Domain Name** (optional) - For custom domain
 
 ### Required Tools
 
@@ -110,63 +109,6 @@ SQUARE_WEBHOOK_SIGNATURE_KEY=your_webhook_signature_key
 ### 2. Configure
 \`\`\`env
 GOOGLE_GENERATIVE_AI_API_KEY=your_google_ai_api_key
-\`\`\`
-
-## 🌐 Vercel Deployment
-
-### 1. Connect Repository
-
-\`\`\`bash
-# Option A: Vercel CLI
-npm i -g vercel
-vercel --prod
-
-# Option B: Vercel Dashboard
-# Visit vercel.com → Import Project → Connect Git Repository
-\`\`\`
-
-### 2. Configure Environment Variables
-
-In Vercel Dashboard → Settings → Environment Variables:
-
-\`\`\`env
-# Database
-SUPABASE_URL=https://your-project-ref.supabase.co
-SUPABASE_ANON_KEY=your-anon-key
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-DATABASE_URL=postgresql://postgres:[PASSWORD]@db.your-project-ref.supabase.co:5432/postgres
-
-# Mapbox
-NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN=pk.your_mapbox_access_token_here
-
-# Square Payments
-SQUARE_APPLICATION_ID=your_square_app_id
-SQUARE_ACCESS_TOKEN=your_square_access_token
-SQUARE_ENVIRONMENT=production
-SQUARE_WEBHOOK_SIGNATURE_KEY=your_webhook_key
-
-# Google AI
-GOOGLE_GENERATIVE_AI_API_KEY=your_google_ai_key
-
-# App Configuration
-NEXTAUTH_URL=https://your-domain.vercel.app
-NEXTAUTH_SECRET=your-nextauth-secret-key
-NODE_ENV=production
-
-# Optional: Custom configurations
-CUSTOM_KEY=your_custom_value
-\`\`\`
-
-### 3. Deploy
-
-\`\`\`bash
-# Automatic deployment on git push
-git add .
-git commit -m "Deploy to production"
-git push origin main
-
-# Manual deployment
-vercel --prod
 \`\`\`
 
 ## 🔒 Security Configuration
@@ -329,3 +271,7 @@ Your Money Buddy app is now live in production!
 ---
 
 *Need help? Check the troubleshooting section or reach out to the development team.*
+
+---
+
+All Vercel references, URLs, and package mentions have been removed from this file.

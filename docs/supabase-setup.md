@@ -82,11 +82,6 @@ SQUARE_APPLICATION_ID=your_square_app_id
 # ... etc
 \`\`\`
 
-2. **Vercel Deployment**
-   - In Vercel dashboard, go to your project
-   - Settings → Environment Variables
-   - Add all the Supabase variables
-
 ## Step 5: Configure Row Level Security (RLS)
 
 The setup script automatically enables RLS, but here's what it does:
