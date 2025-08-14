@@ -1,4 +1,4 @@
-# Money Buddy Production Setup Guide
+# Money Buddy Self-Hosted Setup Guide
 
 ## 🚀 Setting Up PayPal for Production
 
@@ -40,48 +40,61 @@ PAYPAL_ENVIRONMENT=production
 NEXT_PUBLIC_PAYPAL_CLIENT_ID=your_live_client_id_here
 ```
 
-## 🏗️ Production Deployment Options
+## 🏗️ Self-Hosted Deployment Options
 
-### Option 1: Vercel (Recommended - Easy)
-1. **Install Vercel CLI**:
+### Option 1: Docker (Recommended)
+1. **Build and Deploy**:
    ```bash
-   npm install -g vercel
+   # Build the image
+   docker build -t money-buddy .
+   
+   # Run with environment file
+   docker run -p 3000:3000 --env-file .env.local money-buddy
    ```
 
-2. **Login to Vercel**:
+2. **Or use Docker Compose**:
    ```bash
-   vercel login
+   # Start all services
+   docker-compose up -d
+   
+   # Check logs
+   docker-compose logs -f money-buddy
    ```
 
-3. **Deploy**:
+### Option 2: VPS Deployment
+1. **Set up your server**:
    ```bash
-   vercel --prod
+   # Install Node.js 18+
+   curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+   sudo apt-get install -y nodejs
+   
+   # Install PM2 for process management
+   npm install -g pm2
    ```
 
-4. **Set Environment Variables** in Vercel Dashboard:
-   - Go to your project settings
-   - Add all environment variables from `.env.local`
-   - **Important**: Use production PayPal credentials
-
-### Option 2: Railway (Alternative)
-1. **Install Railway CLI**:
+2. **Deploy your application**:
    ```bash
-   npm install -g @railway/cli
+   # Clone repository
+   git clone your-repo-url
+   cd money-buddy
+   
+   # Install dependencies
+   npm install
+   
+   # Build for production
+   npm run build
+   
+   # Start with PM2
+   pm2 start npm --name "money-buddy" -- start
+   pm2 startup
+   pm2 save
    ```
 
-2. **Login and Deploy**:
-   ```bash
-   railway login
-   railway init
-   railway up
-   ```
-
-### Option 3: DigitalOcean App Platform
-1. **Connect GitHub Repository**
-2. **Configure Build Settings**:
-   - Build Command: `npm run build`
-   - Run Command: `npm start`
-3. **Add Environment Variables**
+### Option 3: Cloud Platforms
+- **DigitalOcean App Platform**: Deploy from GitHub
+- **AWS ECS**: Use Docker containers
+- **Google Cloud Run**: Serverless containers
+- **Azure Container Instances**: Simple container hosting
 
 ## 🔧 Pre-Production Checklist
 
@@ -94,11 +107,13 @@ npm run build
 npm start
 ```
 
-### 2. Security Configuration
-Update your environment variables:
+### 2. Environment Configuration
+Create your environment file:
 
 ```bash
-# Add to .env.local for production
+# Create .env.local for your deployment
+NODE_ENV=production
+PORT=3000
 NEXTAUTH_URL=https://your-domain.com
 NEXTAUTH_SECRET=your-super-secret-key-here
 ```
@@ -114,9 +129,9 @@ Your Supabase is already configured for production. Verify:
 - Ensure SSL certificate is active
 - Update PayPal webhook URLs with your domain
 
-## 📋 Production Environment Variables
+## 📋 Self-Hosted Environment Variables
 
-Create a `.env.production` file:
+Create a `.env.local` file:
 
 ```bash
 # Supabase (Production Ready)
@@ -127,18 +142,25 @@ SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhY
 # MapBox (Production Ready)
 NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN=pk.eyJ1Ijoiamx1YzkyMiIsImEiOiJjbWN6NHo3M3Iwd3VpMm1wejZoZTdjMm9hIn0.WvN1Q8aO-cRLfj3bpR9ENg
 
-# PayPal PRODUCTION (Replace with your live credentials)
+# PayPal (Replace with your live credentials)
 PAYPAL_CLIENT_ID=YOUR_LIVE_CLIENT_ID
 PAYPAL_CLIENT_SECRET=YOUR_LIVE_CLIENT_SECRET
 PAYPAL_ENVIRONMENT=production
 NEXT_PUBLIC_PAYPAL_CLIENT_ID=YOUR_LIVE_CLIENT_ID
 
+# Google AI
+GOOGLE_GENERATIVE_AI_API_KEY=your_google_ai_api_key
+
 # Security
 NEXTAUTH_URL=https://your-domain.com
 NEXTAUTH_SECRET=your-super-secret-key-minimum-32-characters
+
+# Application
+NODE_ENV=production
+PORT=3000
 ```
 
-## 🧪 Testing Production PayPal
+## 🧪 Testing Self-Hosted PayPal
 
 ### Before Going Live:
 1. **Test with small amounts** ($0.01)
@@ -177,34 +199,33 @@ NEXTAUTH_SECRET=your-super-secret-key-minimum-32-characters
 ## 🎯 Quick Start Commands
 
 ```bash
-# 1. Build for production
+# 1. Traditional deployment
 npm run build
-
-# 2. Deploy to Vercel
-vercel --prod
-
-# 3. Or deploy to Railway
-railway up
-
-# 4. Test production build locally
 npm start
+
+# 2. Docker deployment
+npm run docker:build
+npm run docker:run
+
+# 3. Docker Compose
+docker-compose up -d
 ```
 
 ## 📞 Support Resources
 
 - **PayPal Developer Support**: https://developer.paypal.com/support/
-- **Vercel Support**: https://vercel.com/support
+- **Docker Documentation**: https://docs.docker.com/
 - **Supabase Support**: https://supabase.com/support
 - **Next.js Documentation**: https://nextjs.org/docs
 
 ---
 
-## 🔥 Ready to Launch?
+## 🔥 Ready to Self-Host?
 
 1. ✅ Get PayPal live credentials
-2. ✅ Choose deployment platform
+2. ✅ Set up Docker or VPS
 3. ✅ Set up environment variables
 4. ✅ Test with small amounts
 5. ✅ Go live! 🚀
 
-**Need help?** Check each step carefully and test thoroughly before processing real money!
+**Need help?** Check each deployment option and test thoroughly before processing real money!

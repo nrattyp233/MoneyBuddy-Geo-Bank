@@ -4,27 +4,27 @@ const nextConfig = {
     optimizePackageImports: ['lucide-react']
   },
   images: {
-    domains: ['blob.v0.dev'],
+    domains: ['images.pexels.com', 'via.placeholder.com'],
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: 'blob.v0.dev',
+        hostname: 'images.pexels.com',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'via.placeholder.com',
         port: '',
         pathname: '/**',
       },
     ],
-    unoptimized: true,
-  },
-  env: {
-    CUSTOM_KEY: process.env.CUSTOM_KEY,
-    SUPABASE_URL: process.env.SUPABASE_URL,
-    SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY,
-    SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+    unoptimized: false,
   },
   // Production optimizations
   compress: true,
   poweredByHeader: false,
-  generateEtags: false,
+  generateEtags: true,
   // Security headers
   async headers() {
     return [
@@ -57,6 +57,7 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  output: 'standalone',
 }
 
 export default nextConfig

@@ -1,18 +1,18 @@
-# Money Buddy - Production Deployment Guide
+# Money Buddy - Self-Hosted Deployment Guide
 
-This guide covers deploying Money Buddy to production with Supabase database, Mapbox geofencing, Square payments, and all integrated services.
+This guide covers self-hosting Money Buddy with Docker, Supabase database, Mapbox geofencing, PayPal payments, and all integrated services.
 
 ## 🚀 Quick Deployment Checklist
 
 - [ ] Supabase project created and configured
 - [ ] Mapbox access token obtained
-- [ ] Square payment credentials configured
+- [ ] PayPal payment credentials configured
 - [ ] Google AI API key set up
 - [ ] Environment variables configured
 - [ ] Domain configured (if custom)
 - [ ] SSL certificates enabled
 - [ ] Database migrations run
-- [ ] Production testing completed
+- [ ] Self-hosted deployment completed
 
 ## 📋 Prerequisites
 
@@ -20,13 +20,15 @@ This guide covers deploying Money Buddy to production with Supabase database, Ma
 
 1. **Supabase Account** - For production database
 2. **Mapbox Account** - For geofencing maps
-3. **Square Developer Account** - For payment processing
+3. **PayPal Developer Account** - For payment processing
 4. **Google AI Account** - For AI chat features
-5. **Domain Name** (optional) - For custom domain
+5. **Docker** - For containerized deployment
+6. **Domain Name** (optional) - For custom domain
 
 ### Required Tools
 
 - Node.js 18+ and npm
+- Docker and Docker Compose
 - Git for version control
 - Access to your project repository
 
@@ -34,29 +36,29 @@ This guide covers deploying Money Buddy to production with Supabase database, Ma
 
 ### 1. Create Supabase Project
 
-\`\`\`bash
+```bash
 # Visit https://app.supabase.com
 # Create new project: money-buddy-production
 # Choose region closest to your users
 # Generate strong database password
-\`\`\`
+```
 
 ### 2. Run Database Scripts
 
-\`\`\`sql
+```sql
 -- In Supabase SQL Editor, run:
 -- 1. scripts/supabase-setup.sql (creates tables and functions)
 -- 2. scripts/supabase-seed.sql (adds demo data - optional)
-\`\`\`
+```
 
 ### 3. Get Supabase Credentials
 
-\`\`\`env
+```env
 SUPABASE_URL=https://your-project-ref.supabase.co
 SUPABASE_ANON_KEY=your-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 DATABASE_URL=postgresql://postgres:[PASSWORD]@db.your-project-ref.supabase.co:5432/postgres
-\`\`\`
+```
 
 ## 🗺️ Mapbox Configuration
 
@@ -66,39 +68,39 @@ DATABASE_URL=postgresql://postgres:[PASSWORD]@db.your-project-ref.supabase.co:54
 - Go to Account → Access Tokens
 
 ### 2. Create Access Token
-\`\`\`bash
+```bash
 # Create token with these scopes:
 # - styles:read
 # - fonts:read
 # - datasets:read
 # - geocoding:read
-\`\`\`
+```
 
 ### 3. Configure Token
-\`\`\`env
+```env
 NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN=pk.your_mapbox_access_token_here
-\`\`\`
+```
 
-## 💳 Square Payment Setup
+## 💳 PayPal Payment Setup
 
-### 1. Square Developer Account
-- Visit [developer.squareup.com](https://developer.squareup.com)
+### 1. PayPal Developer Account
+- Visit [developer.paypal.com](https://developer.paypal.com)
 - Create developer account
 - Create new application
 
 ### 2. Get Credentials
-\`\`\`env
-SQUARE_APPLICATION_ID=your_square_application_id
-SQUARE_ACCESS_TOKEN=your_square_access_token
-SQUARE_ENVIRONMENT=production  # or 'sandbox' for testing
-SQUARE_WEBHOOK_SIGNATURE_KEY=your_webhook_signature_key
-\`\`\`
+```env
+PAYPAL_CLIENT_ID=your_paypal_client_id
+PAYPAL_CLIENT_SECRET=your_paypal_client_secret
+PAYPAL_ENVIRONMENT=production  # or 'sandbox' for testing
+NEXT_PUBLIC_PAYPAL_CLIENT_ID=your_paypal_client_id
+```
 
 ### 3. Configure Webhooks
-\`\`\`bash
-# Webhook URL: https://your-domain.com/api/webhooks/square
-# Events: payment.created, payment.updated
-\`\`\`
+```bash
+# Webhook URL: https://your-domain.com/api/webhooks/paypal
+# Events: PAYMENT.CAPTURE.COMPLETED, CHECKOUT.ORDER.COMPLETED
+```
 
 ## 🤖 Google AI Setup
 
@@ -107,32 +109,85 @@ SQUARE_WEBHOOK_SIGNATURE_KEY=your_webhook_signature_key
 - Create API key for Gemini
 
 ### 2. Configure
-\`\`\`env
+```env
 GOOGLE_GENERATIVE_AI_API_KEY=your_google_ai_api_key
-\`\`\`
+```
+
+## 🏗️ Self-Hosted Deployment Options
+
+### Option 1: Docker (Recommended)
+1. **Build and run with Docker**:
+   ```bash
+   # Build the Docker image
+   docker build -t money-buddy .
+   
+   # Run the container
+   docker run -p 3000:3000 --env-file .env.local money-buddy
+   ```
+
+2. **Or use Docker Compose**:
+   ```bash
+   # Start the application
+   docker-compose up -d
+   
+   # View logs
+   docker-compose logs -f
+   
+   # Stop the application
+   docker-compose down
+   ```
+
+### Option 2: Traditional VPS Deployment
+1. **Install Node.js on your server**:
+   ```bash
+   curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+   sudo apt-get install -y nodejs
+   ```
+
+2. **Clone and build**:
+   ```bash
+   git clone your-repo-url
+   cd money-buddy
+   npm install
+   npm run build
+   ```
+
+3. **Run with PM2**:
+   ```bash
+   npm install -g pm2
+   pm2 start npm --name "money-buddy" -- start
+   pm2 startup
+   pm2 save
+   ```
+
+### Option 3: Cloud Platforms
+- **DigitalOcean App Platform**: Deploy directly from GitHub
+- **AWS ECS**: Use Docker containers
+- **Google Cloud Run**: Serverless containers
+- **Azure Container Instances**: Simple container hosting
 
 ## 🔒 Security Configuration
 
 ### 1. Environment Security
-\`\`\`bash
+```bash
 # Generate secure secrets
 openssl rand -base64 32  # For NEXTAUTH_SECRET
-\`\`\`
+```
 
 ### 2. CORS Configuration
-\`\`\`javascript
+```javascript
 // In your API routes, ensure CORS is properly configured
 const allowedOrigins = [
   'https://your-domain.com',
   'https://your-domain.vercel.app'
 ]
-\`\`\`
+```
 
 ### 3. Rate Limiting
-\`\`\`javascript
+```javascript
 // Implement rate limiting for API endpoints
 // Consider using Vercel's Edge Config or Upstash Redis
-\`\`\`
+```
 
 ## 🌍 Custom Domain (Optional)
 
@@ -142,38 +197,73 @@ const allowedOrigins = [
 - Configure DNS records
 
 ### 2. Update Environment Variables
-\`\`\`env
-NEXTAUTH_URL=https://your-custom-domain.com
-\`\`\`
+```env
+# Environment variables for production
+NODE_ENV=production
+NEXTAUTH_URL=https://your-domain.com
+NEXTAUTH_SECRET=your-super-secret-key-here
+PORT=3000
+```
 
 ### 3. SSL Certificate
 - Vercel automatically provisions SSL certificates
 - Verify HTTPS is working
 
+## 📋 Self-Hosted Environment Variables
+
+Create a `.env.local` file for your deployment:
+
+```bash
+# Supabase (Production Ready)
+SUPABASE_URL=https://vopslwrrjhwopswtlhzn.supabase.co
+SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZvcHNsd3Jyamh3b3Bzd3RsaHpuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE3NTY2NTIsImV4cCI6MjA2NzMzMjY1Mn0.6ZbcBg1KzfChYJItBHxhimLmo1b4Bl22usjfSeR7gmc
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZvcHNsd3Jyamh3b3Bzd3RsaHpuIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MTc1NjY1MiwiZXhwIjoyMDY3MzMyNjUyfQ.iV8LqlpZYy-V5N4VrMAJjaDDMk2uG2W6fv80LtT8f0o
+
+# Mapbox (Production Ready)
+NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN=pk.eyJ1Ijoiamx1YzkyMiIsImEiOiJjbWN6NHo3M3Iwd3VpMm1wejZoZTdjMm9hIn0.WvN1Q8aO-cRLfj3bpR9ENg
+
+# PayPal PRODUCTION (Replace with your live credentials)
+PAYPAL_CLIENT_ID=YOUR_LIVE_CLIENT_ID
+PAYPAL_CLIENT_SECRET=YOUR_LIVE_CLIENT_SECRET
+PAYPAL_ENVIRONMENT=production
+NEXT_PUBLIC_PAYPAL_CLIENT_ID=YOUR_LIVE_CLIENT_ID
+
+# Google AI
+GOOGLE_GENERATIVE_AI_API_KEY=your_google_ai_api_key
+
+# Security
+NEXTAUTH_URL=https://your-domain.com
+NEXTAUTH_SECRET=your-super-secret-key-minimum-32-characters
+
+# Application
+NODE_ENV=production
+PORT=3000
+```
+
 ## 📊 Monitoring & Analytics
 
 ### 1. Vercel Analytics
-\`\`\`bash
+```bash
 # Enable in Vercel Dashboard → Analytics
 # Or add to your app:
 npm install @vercel/analytics
-\`\`\`
+```
 
 ### 2. Error Monitoring
-\`\`\`bash
+```bash
 # Consider adding Sentry or similar
 npm install @sentry/nextjs
-\`\`\`
+```
 
 ### 3. Database Monitoring
 - Use Supabase Dashboard → Reports
 - Set up alerts for high usage
 - Monitor query performance
 
-## 🧪 Production Testing
+## 🧪 Testing Self-Hosted PayPal
 
 ### 1. Functionality Tests
-\`\`\`bash
+```bash
 # Test all major features:
 # ✅ User registration/login
 # ✅ Deposit/withdrawal flows
@@ -181,56 +271,71 @@ npm install @sentry/nextjs
 # ✅ Map functionality
 # ✅ AI chat features
 # ✅ Payment processing
-\`\`\`
+```
 
 ### 2. Performance Tests
-\`\`\`bash
+```bash
 # Use tools like:
 # - Lighthouse for performance auditing
 # - GTmetrix for speed testing
 # - WebPageTest for detailed analysis
-\`\`\`
+```
 
 ### 3. Security Tests
-\`\`\`bash
+```bash
 # Verify:
 # ✅ HTTPS everywhere
 # ✅ Environment variables secure
 # ✅ API endpoints protected
 # ✅ Database RLS working
-\`\`\`
+```
+
+## 🎯 Quick Start Commands
+
+```bash
+# 1. Traditional deployment
+npm run build
+npm start
+
+# 2. Docker deployment
+docker build -t money-buddy .
+docker run -p 3000:3000 --env-file .env.local money-buddy
+
+# 3. Docker Compose deployment
+docker-compose up -d
+```
 
 ## 🚨 Troubleshooting
 
 ### Common Issues
 
 1. **Database Connection Errors**
-   \`\`\`bash
+   ```bash
    # Check DATABASE_URL format
    # Verify Supabase project is active
    # Ensure password is URL-encoded
-   \`\`\`
+   ```
 
 2. **Mapbox Not Loading**
-   \`\`\`bash
+   ```bash
    # Verify NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN
    # Check token permissions
    # Ensure token starts with 'pk.'
-   \`\`\`
+   ```
 
 3. **Square Payment Failures**
-   \`\`\`bash
+   ```bash
    # Verify SQUARE_ENVIRONMENT setting
    # Check application ID and access token
    # Ensure webhook URL is accessible
-   \`\`\`
+   ```
 
 4. **Build Failures**
-   \`\`\`bash
+   ```bash
    # Check for TypeScript errors
    # Verify all dependencies are installed
    # Ensure environment variables are set
-   \`\`\`
+   ```
 
 ### Getting Help
 
@@ -238,6 +343,13 @@ npm install @sentry/nextjs
 - **Supabase Docs**: [supabase.com/docs](https://supabase.com/docs)
 - **Mapbox Support**: [docs.mapbox.com](https://docs.mapbox.com)
 - **Square Developer**: [developer.squareup.com/support](https://developer.squareup.com/support)
+
+## 📞 Support Resources
+
+- **PayPal Developer Support**: https://developer.paypal.com/support/
+- **Docker Documentation**: https://docs.docker.com/
+- **Supabase Support**: https://supabase.com/support
+- **Next.js Documentation**: https://nextjs.org/docs
 
 ## 📈 Post-Deployment
 
@@ -256,17 +368,15 @@ npm install @sentry/nextjs
 - Consider Supabase plan upgrades
 - Optimize database queries as needed
 
-## 🎉 Success!
+## 🔥 Ready to Self-Host?
 
-Your Money Buddy app is now live in production! 
+1. ✅ Get PayPal live credentials
+2. ✅ Set up Docker or VPS
+3. ✅ Set up environment variables
+4. ✅ Test with small amounts
+5. ✅ Go live! 🚀
 
-**Next Steps:**
-1. Share your app with users
-2. Monitor performance and usage
-3. Iterate based on feedback
-4. Scale infrastructure as needed
-
-**Production URL:** `https://your-domain.vercel.app`
+**Need help?** Check each deployment option and test thoroughly before processing real money!
 
 ---
 
