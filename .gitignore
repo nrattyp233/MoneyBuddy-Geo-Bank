@@ -1,9 +1,14 @@
 # Environment variables
 .env
 .env.local
+.env.production
 
 # Logs
 *.log
+logs/
+log.txt
+debug.log
+error.log
 
 # OS-specific
 .DS_Store
@@ -14,5 +19,38 @@ __pycache__/
 *.py[cod]
 *.sqlite3
 
-# Node (if applicable)
+# Node.js
 node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Next.js build artifacts
+.next/
+out/
+dist/
+build/
+
+# Temporary files
+*.tmp
+*.temp
+temp/
+tmp/
+spec.txt
+
+# IDE and editor files
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+*~
+
+# Testing
+coverage/
+.nyc_output/
+test-results/
+
+# Archives and deprecated code
+archive/
+deprecated/
