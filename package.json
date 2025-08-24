@@ -43,7 +43,7 @@
     "mapbox-gl": "^3.14.0",
     "next": "15.2.4",
     "react": "^19",
-    "react-day-picker": "8.10.1",
+    "react-day-picker": "^9.0.0",
     "react-dom": "^19",
     "squareup": "1.0.0",
     "stripe": "^18.4.0",
