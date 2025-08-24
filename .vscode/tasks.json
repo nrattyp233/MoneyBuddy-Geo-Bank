@@ -4,7 +4,7 @@
 		{
 			"type": "shell",
 			"label": "Next.js Build",
-			"command": "pnpm build",
+			"command": "next build",
 			"group": "build",
 			"problemMatcher": [
 				"$tsc"
