@@ -3,8 +3,12 @@ import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/ca
 import { Shield, MapPin, Clock, Bot, Lock, CreditCard } from "lucide-react"
 import Link from "next/link"
 import { MoneyBuddyLogo } from "@/components/money-buddy-logo"
+import { supabase } from "@/lib/supabase"
 
 export default function LandingPage() {
+  // Check if Supabase is connected
+  const isSupabaseConnected = !!supabase
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-600 via-blue-600 to-lime-500 relative overflow-hidden">
       {/* Animated background elements */}
@@ -21,6 +25,11 @@ export default function LandingPage() {
             <span className="text-2xl font-bold text-white drop-shadow-lg">Money Buddy</span>
           </div>
           <div className="space-x-4">
+            {!isSupabaseConnected && (
+              <div className="bg-yellow-500/20 text-yellow-100 px-3 py-1 rounded-full text-sm font-medium border border-yellow-500/30">
+                ⚠️ Connect Supabase to enable full features
+              </div>
+            )}
             <Link href="/auth/login">
               <Button variant="ghost" className="text-white hover:text-white hover:bg-white/20 font-medium">
                 Login
