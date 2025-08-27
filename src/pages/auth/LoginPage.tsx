@@ -1,0 +1,209 @@
+import React, { useState } from "react"
+import { useNavigate } from "react-router-dom"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { LogIn, Mail, Lock, ArrowRight, UserPlus } from "lucide-react"
+import { MoneyBuddyLogo } from "@/components/money-buddy-logo"
+import { supabase } from "@/lib/supabase"
+
+export default function LoginPage() {
+  const [formData, setFormData] = useState({
+    email: "",
+    password: "",
+  })
+  const [isLoading, setIsLoading] = useState(false)
+  const [errors, setErrors] = useState<Record<string, string>>({})
+  const navigate = useNavigate()
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
+    setFormData((prev) => ({ ...prev, [name]: value }))
+
+    // Clear error when user starts typing
+    if (errors[name]) {
+      setErrors((prev) => ({ ...prev, [name]: "" }))
+    }
+  }
+
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {}
+
+    if (!formData.email.trim()) {
+      newErrors.email = "Email is required"
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      newErrors.email = "Please enter a valid email address"
+    }
+
+    if (!formData.password) {
+      newErrors.password = "Password is required"
+    }
+
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!validateForm()) {
+      return
+    }
+
+    if (!supabase) {
+      setErrors({ submit: "Database connection not available. Please connect Supabase." })
+      return
+    }
+
+    setIsLoading(true)
+
+    try {
+      // Authenticate with Supabase
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email: formData.email.trim(),
+        password: formData.password,
+      })
+
+      if (authError) {
+        console.error("Authentication error:", authError)
+        setErrors({ submit: authError.message || "Login failed. Please check your credentials." })
+        return
+      }
+
+      if (!authData.user) {
+        setErrors({ submit: "Login failed. No user data received." })
+        return
+      }
+
+      console.log("User authenticated successfully:", authData.user.id)
+
+      // Redirect to dashboard
+      navigate("/dashboard")
+    } catch (error) {
+      console.error("Login error:", error)
+      setErrors({ submit: "Login failed. Please try again." })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-600 via-blue-600 to-lime-500 flex items-center justify-center p-4">
+      {/* Animated background elements */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-white/10 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-lime-400/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-blue-400/5 rounded-full blur-3xl animate-pulse delay-500"></div>
+      </div>
+
+      <Card className="w-full max-w-md border-2 border-white/30 bg-gradient-to-br from-white/95 to-white/90 backdrop-blur-sm shadow-2xl relative z-10">
+        <CardHeader className="text-center space-y-4">
+          <div className="flex justify-center">
+            <MoneyBuddyLogo className="w-16 h-16" />
+          </div>
+          <div>
+            <CardTitle className="text-3xl font-bold text-purple-900 flex items-center justify-center">
+              <LogIn className="h-8 w-8 mr-2 text-lime-500" />
+              Welcome Back
+            </CardTitle>
+            <CardDescription className="text-gray-700 font-medium text-lg mt-2">
+              Sign in to your Money Buddy account 🐵
+            </CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Email Field */}
+            <div className="space-y-2">
+              <Label htmlFor="email" className="text-purple-900 font-bold">
+                Email Address
+              </Label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-purple-400" />
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  placeholder="john@example.com"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  className={`pl-10 border-2 focus:border-purple-400 bg-white font-medium ${
+                    errors.email ? "border-red-400" : "border-purple-200"
+                  }`}
+                />
+              </div>
+              {errors.email && <p className="text-red-600 text-sm font-medium">{errors.email}</p>}
+            </div>
+
+            {/* Password Field */}
+            <div className="space-y-2">
+              <Label htmlFor="password" className="text-purple-900 font-bold">
+                Password
+              </Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-purple-400" />
+                <Input
+                  id="password"
+                  name="password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={formData.password}
+                  onChange={handleInputChange}
+                  className={`pl-10 border-2 focus:border-purple-400 bg-white font-medium ${
+                    errors.password ? "border-red-400" : "border-purple-200"
+                  }`}
+                />
+              </div>
+              {errors.password && <p className="text-red-600 text-sm font-medium">{errors.password}</p>}
+            </div>
+
+            {/* Submit Error */}
+            {errors.submit && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-red-600 text-sm font-medium">{errors.submit}</p>
+              </div>
+            )}
+
+            {/* Submit Button */}
+            <Button
+              type="submit"
+              disabled={isLoading || !supabase}
+              className="w-full bg-gradient-to-r from-lime-500 to-lime-600 hover:from-lime-600 hover:to-lime-700 text-white font-bold py-4 text-lg shadow-xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isLoading ? (
+                <div className="flex items-center">
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                  Signing In...
+                </div>
+              ) : !supabase ? (
+                "Connect Supabase to Sign In"
+              ) : (
+                <div className="flex items-center">
+                  <LogIn className="h-5 w-5 mr-2" />
+                  Sign In
+                  <ArrowRight className="h-4 w-4 ml-2" />
+                </div>
+              )}
+            </Button>
+
+            {/* Register Link */}
+            <div className="text-center pt-4">
+              <p className="text-gray-600 font-medium">
+                Don't have an account?{" "}
+                <Button
+                  variant="link"
+                  onClick={() => navigate("/auth/register")}
+                  className="text-purple-600 hover:text-purple-800 font-bold p-0 h-auto"
+                >
+                  <UserPlus className="h-4 w-4 mr-1" />
+                  Create one here
+                </Button>
+              </p>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
