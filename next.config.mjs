@@ -1,7 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
-    optimizePackageImports: ['lucide-react']
+    optimizePackageImports: ['lucide-react'],
+    serverComponentsExternalPackages: ['@paypal/checkout-server-sdk']
   },
   images: {
     domains: ['images.pexels.com', 'via.placeholder.com'],
@@ -57,7 +58,7 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  output: 'standalone',
+  output: 'standalone'
 }
 
 export default nextConfig
